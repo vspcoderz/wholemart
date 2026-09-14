@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start -p 5000",
     "lint": "eslint",
-    "db:push": "drizzle-kit push",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:setup": "tsx scripts/setup.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
