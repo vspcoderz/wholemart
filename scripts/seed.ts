@@ -4,10 +4,12 @@ import postgres from "postgres";
 import { products, settings, users } from "../src/db/schema";
 import type { Category, Unit } from "../src/db/schema";
 
-try {
-  process.loadEnvFile(".env.local");
-} catch {
-  // fall back to environment
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile(".env.local");
+  } catch {
+    // fall back to environment
+  }
 }
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
