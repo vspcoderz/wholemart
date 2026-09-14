@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 
-export async function GET() {
-  if (process.env.SETUP_DONE === "true") {
-    return NextResponse.json({ ok: true, message: "Already set up" });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const token = searchParams.get("token");
+
+  if (!token || token !== process.env.SETUP_TOKEN) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
