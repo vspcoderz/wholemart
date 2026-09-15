@@ -24,8 +24,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Add, Edit, Delete } from "@mui/icons-material";
+import { Add, Edit, Delete, Visibility, VisibilityOff } from "@mui/icons-material";
 import { useState, useTransition } from "react";
+import { useMediaQuery, useTheme } from "@mui/material";
 import { useRouter } from "next/navigation";
 import type { Category, Unit } from "@/db/schema";
 import { CATEGORIES, CATEGORY_LABELS, UNITS, UNIT_LABELS, inr } from "@/lib/format";
@@ -60,6 +61,8 @@ const EMPTY: ProductInput = {
 
 export default function ProductsClient({ products }: { products: Row[] }) {
   const router = useRouter();
+  const muiTheme = useTheme();
+  const isDesktop = useMediaQuery(muiTheme.breakpoints.up("md"));
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<ProductInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
@@ -93,6 +96,94 @@ export default function ProductsClient({ products }: { products: Row[] }) {
         </Button>
       </Box>
 
+      {/* Mobile: cards */}
+      {!isDesktop && (
+        <Box>
+          {products.map((p) => (
+            <Card
+              key={p.id}
+              variant="outlined"
+              sx={{ borderRadius: 1.5, mb: 1, p: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1,
+                  display: "grid",
+                  placeItems: "center",
+                  bgcolor: "action.hover",
+                  fontSize: 26,
+                  flexShrink: 0,
+                }}
+              >
+                {p.emoji ?? "🥬"}
+              </Box>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600 }} noWrap>
+                  {p.nameMr ? `${p.nameMr} · ${p.name}` : p.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {CATEGORY_LABELS[p.category]} · {inr(p.pricePerUnit)}/{UNIT_LABELS[p.unit]}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label={`Edit ${p.name}`}
+                onClick={() =>
+                  setEditing({
+                    id: p.id,
+                    name: p.name,
+                    nameMr: p.nameMr ?? "",
+                    emoji: p.emoji ?? "",
+                    category: p.category,
+                    unit: p.unit,
+                    pricePerUnit: p.pricePerUnit,
+                    description: p.description ?? "",
+                    active: p.active,
+                  })
+                }
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                aria-label={`Toggle ${p.name}`}
+                onClick={() =>
+                  startTransition(async () => {
+                    await toggleProduct(p.id, !p.active);
+                    router.refresh();
+                  })
+                }
+              >
+                {p.active ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                aria-label={`Delete ${p.name}`}
+                onClick={() => {
+                  if (!confirm(`Delete "${p.name}"? Past orders keep their records.`)) return;
+                  startTransition(async () => {
+                    const res = await deleteProduct(p.id);
+                    if (!res.ok) {
+                      setToast({ msg: res.error ?? "Delete failed.", severity: "error" });
+                    } else {
+                      setToast({ msg: "Product deleted.", severity: "success" });
+                    }
+                    router.refresh();
+                  });
+                }}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {/* Desktop: table */}
+      {isDesktop && (
       <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
         <TableContainer>
           <Table size="small">
@@ -159,7 +250,12 @@ export default function ProductsClient({ products }: { products: Row[] }) {
                       onClick={() => {
                         if (!confirm(`Delete "${p.name}"? Past orders keep their records.`)) return;
                         startTransition(async () => {
-                          await deleteProduct(p.id);
+                          const res = await deleteProduct(p.id);
+                          if (!res.ok) {
+                            setToast({ msg: res.error ?? "Delete failed.", severity: "error" });
+                          } else {
+                            setToast({ msg: "Product deleted.", severity: "success" });
+                          }
                           router.refresh();
                         });
                       }}
@@ -173,6 +269,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
           </Table>
         </TableContainer>
       </Card>
+      )}
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing?.id ? "Edit product" : "Add product"}</DialogTitle>

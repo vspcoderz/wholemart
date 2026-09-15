@@ -25,10 +25,9 @@ docker run -d --name wvt-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=wholesa
 # 2. Env
 cp .env.example .env.local   # defaults work with the Docker command above
 
-# 3. Schema + seed data
+# 3. Install + create tables, seed data and accounts in one step
 npm install
-npm run db:push
-npm run db:seed
+npm run db:setup
 
 # 4. Run (port 5000)
 npm run dev
@@ -74,10 +73,12 @@ auto page-breaks for 40+ line items, adjusted quantities flagged, COD total.
 
 1. Create a Supabase project -> copy the **connection pooler** string
    (Transaction mode) into `DATABASE_URL`.
-2. Run `npm run db:push` against it (locally with the same env var) to create
-   tables, then `npm run db:seed` once.
-3. Push to GitHub -> import in Vercel -> set `DATABASE_URL` and `AUTH_SECRET`
-   (generate with `openssl rand -base64 32`) in project env vars.
+2. Push to GitHub -> import in Vercel -> set env vars: `DATABASE_URL`,
+   `AUTH_SECRET` (generate with `openssl rand -base64 32`) and `SETUP_TOKEN`
+   (any long random string).
+3. `next build` automatically runs `npm run db:setup`, which creates tables,
+   the settings row and the seed accounts/products if they don't exist yet.
+   Alternatively hit `GET /api/setup?token=<SETUP_TOKEN>` after deploy.
 4. Serve over HTTPS (Vercel default) — required for PWA install.
 
 ## Notes

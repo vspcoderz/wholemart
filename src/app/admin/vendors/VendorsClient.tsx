@@ -21,10 +21,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Add, Edit } from "@mui/icons-material";
+import { Add, Edit, Delete } from "@mui/icons-material";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveVendor, toggleVendor, type VendorInput } from "@/lib/actions/admin";
+import {
+  saveVendor,
+  toggleVendor,
+  deleteVendor,
+  type VendorInput,
+} from "@/lib/actions/admin";
+import { useMediaQuery, useTheme } from "@mui/material";
 
 type Row = {
   id: number;
@@ -49,9 +55,28 @@ const EMPTY: VendorInput = {
 
 export default function VendorsClient({ vendors }: { vendors: Row[] }) {
   const router = useRouter();
+  const muiTheme = useTheme();
+  const isDesktop = useMediaQuery(muiTheme.breakpoints.up("md"));
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<VendorInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+
+  function doDelete(v: Row) {
+    const msg =
+      v.orderCount > 0
+        ? `Delete "${v.businessName}"? Their ${v.orderCount} order(s) and invoices will be permanently deleted.`
+        : `Delete "${v.businessName}"?`;
+    if (!confirm(msg)) return;
+    startTransition(async () => {
+      const res = await deleteVendor(v.id, true);
+      if (res.ok) {
+        setToast({ msg: "Retailer deleted.", severity: "success" });
+      } else {
+        setToast({ msg: "Delete failed.", severity: "error" });
+      }
+      router.refresh();
+    });
+  }
 
   function submit() {
     if (!editing) return;
@@ -83,6 +108,74 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
         can&apos;t sign themselves up.
       </Typography>
 
+      {/* Mobile: cards */}
+      {!isDesktop && (
+        <Box sx={{ mt: 2 }}>
+          {vendors.map((v) => (
+            <Card
+              key={v.id}
+              variant="outlined"
+              sx={{ borderRadius: 1.5, mb: 1, p: 1.5 }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography sx={{ fontWeight: 600 }} noWrap>
+                      {v.businessName}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={v.active ? "Active" : "Disabled"}
+                      color={v.active ? "success" : "default"}
+                      onClick={() =>
+                        startTransition(async () => {
+                          await toggleVendor(v.id, !v.active);
+                          router.refresh();
+                        })
+                      }
+                    />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {v.email}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {v.contactPerson ?? "—"} · {v.phone ?? "no phone"} · {v.orderCount} orders
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  aria-label={`Edit ${v.businessName}`}
+                  onClick={() =>
+                    setEditing({
+                      id: v.id,
+                      email: v.email,
+                      businessName: v.businessName,
+                      contactPerson: v.contactPerson ?? "",
+                      phone: v.phone ?? "",
+                      address: v.address ?? "",
+                      active: v.active,
+                      password: "",
+                    })
+                  }
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  color="error"
+                  aria-label={`Delete ${v.businessName}`}
+                  onClick={() => doDelete(v)}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Box>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {/* Desktop: table */}
+      {isDesktop && (
       <Card variant="outlined" sx={{ borderRadius: 1.5, mt: 2 }}>
         <TableContainer>
           <Table size="small">
@@ -144,6 +237,14 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                     >
                       <Edit fontSize="small" />
                     </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      aria-label={`Delete ${v.businessName}`}
+                      onClick={() => doDelete(v)}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -151,6 +252,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
           </Table>
         </TableContainer>
       </Card>
+      )}
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing?.id ? "Edit retailer" : "Add retailer"}</DialogTitle>

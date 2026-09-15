@@ -28,6 +28,7 @@ import {
 } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { APP_NAME } from "@/lib/brand";
 
 const NAV = [
   { label: "Home", href: "/admin", icon: Dashboard },
@@ -108,7 +109,7 @@ export default function AdminShell({
         >
           <Toolbar>
             <AgricultureRounded color="primary" sx={{ mr: 1 }} />
-            <Typography sx={{ fontWeight: 700 }}>GreenGrocer</Typography>
+            <Typography sx={{ fontWeight: 700 }}>{APP_NAME}</Typography>
           </Toolbar>
           {navList}
         </Drawer>

@@ -153,6 +153,8 @@ export async function repeatOrder(
 
   return {
     ok: true,
-    items: rows.map((r) => ({ productId: r.productId, quantity: Number(r.quantity) })),
+    items: rows
+      .filter((r) => r.productId !== null)
+      .map((r) => ({ productId: r.productId as number, quantity: Number(r.quantity) })),
   };
 }

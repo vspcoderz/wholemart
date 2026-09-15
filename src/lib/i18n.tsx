@@ -9,7 +9,7 @@ export type Lang = "mr" | "en";
 // complex shaping; the browser renders all of it correctly.
 export const STRINGS = {
   mr: {
-    appName: "ग्रीनग्रोसर",
+    appName: "OrderApp",
     tagline: "घेऊन जा — भाज्या, इंग्रजी भाज्या व फळे",
     orderOpen: "ऑर्डर चालू आहे",
     orderClosed: "ऑर्डर बंद आहे",
@@ -60,7 +60,7 @@ export const STRINGS = {
     items: "वस्तू",
   },
   en: {
-    appName: "GreenGrocer",
+    appName: "OrderApp",
     tagline: "Wholesale vegetables, English vegetables & fruits",
     orderOpen: "Ordering is open",
     orderClosed: "Ordering is closed",

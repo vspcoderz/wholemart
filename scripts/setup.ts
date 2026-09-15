@@ -11,17 +11,17 @@ if (!process.env.DATABASE_URL) {
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const db = drizzle(client);
 
-const seedProducts: { name: string; category: Category; unit: Unit; price: number }[] = [
-  { name: "Tomato", category: "LOCAL_VEG", unit: "KG", price: 30 },
-  { name: "Onion", category: "LOCAL_VEG", unit: "KG", price: 28 },
-  { name: "Potato", category: "LOCAL_VEG", unit: "KG", price: 25 },
-  { name: "Green Chilli", category: "LOCAL_VEG", unit: "KG", price: 60 },
-  { name: "Ladies Finger", category: "LOCAL_VEG", unit: "KG", price: 45 },
-  { name: "Cabbage", category: "LOCAL_VEG", unit: "PIECE", price: 30 },
-  { name: "Broccoli", category: "ENGLISH_VEG", unit: "KG", price: 180 },
-  { name: "Apple (Shimla)", category: "FRUITS", unit: "KG", price: 160 },
-  { name: "Banana (Robusta)", category: "FRUITS", unit: "KG", price: 40 },
-  { name: "Grapes (Black Seedless)", category: "FRUITS", unit: "KG", price: 110 },
+const seedProducts: { name: string; mr: string; emoji: string; category: Category; unit: Unit; price: number }[] = [
+  { name: "Tomato", mr: "टोमॅटो", emoji: "🍅", category: "LOCAL_VEG", unit: "KG", price: 30 },
+  { name: "Onion", mr: "कांदा", emoji: "🧅", category: "LOCAL_VEG", unit: "KG", price: 28 },
+  { name: "Potato", mr: "बटाटा", emoji: "🥔", category: "LOCAL_VEG", unit: "KG", price: 25 },
+  { name: "Green Chilli", mr: "हिरवी मिरची", emoji: "🌶️", category: "LOCAL_VEG", unit: "KG", price: 60 },
+  { name: "Ladies Finger", mr: "भेंडी", emoji: "🌾", category: "LOCAL_VEG", unit: "KG", price: 45 },
+  { name: "Cabbage", mr: "कोबी", emoji: "🥬", category: "LOCAL_VEG", unit: "PIECE", price: 30 },
+  { name: "Broccoli", mr: "ब्रोकली", emoji: "🥦", category: "ENGLISH_VEG", unit: "KG", price: 180 },
+  { name: "Apple (Shimla)", mr: "सफरचंद", emoji: "🍎", category: "FRUITS", unit: "KG", price: 160 },
+  { name: "Banana (Robusta)", mr: "केळी", emoji: "🍌", category: "FRUITS", unit: "KG", price: 40 },
+  { name: "Grapes (Black Seedless)", mr: "द्राक्षे", emoji: "🍇", category: "FRUITS", unit: "KG", price: 110 },
 ];
 
 async function main() {
@@ -69,7 +69,7 @@ async function main() {
   await sql`CREATE TABLE IF NOT EXISTS order_items (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id INTEGER NOT NULL REFERENCES products(id),
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
     product_name TEXT NOT NULL,
     unit TEXT NOT NULL,
     unit_price NUMERIC(10,2) NOT NULL,

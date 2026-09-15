@@ -41,10 +41,12 @@ export default async function VendorLayout({
       .select()
       .from(orderItems)
       .where(eq(orderItems.orderId, existing.id));
-    initialItems = rows.map((r) => ({
-      productId: r.productId,
-      quantity: Number(r.quantity),
-    }));
+    initialItems = rows
+      .filter((r) => r.productId !== null)
+      .map((r) => ({
+        productId: r.productId as number,
+        quantity: Number(r.quantity),
+      }));
   }
 
   return (

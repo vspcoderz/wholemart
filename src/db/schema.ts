@@ -95,9 +95,9 @@ export const orderItems = pgTable("order_items", {
   orderId: integer("order_id")
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
-  productId: integer("product_id")
-    .notNull()
-    .references(() => products.id),
+  productId: integer("product_id").references(() => products.id, {
+    onDelete: "set null",
+  }), // nullable: deleting a product keeps historical items (name/unit/price are snapshotted)
   productName: text("product_name").notNull(), // snapshot, survives product edits
   unit: unitEnum("unit").notNull(),
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),

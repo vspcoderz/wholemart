@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/brand";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
@@ -118,7 +119,7 @@ export async function GET(
     height: 110,
     color: green,
   });
-  text("GreenGrocer", MARGIN, PAGE_H - 52, 24, bold, rgb(1, 1, 1));
+  text(APP_NAME, MARGIN, PAGE_H - 52, 24, bold, rgb(1, 1, 1));
   text("Wholesale Vegetables · English Vegetables · Fruits", MARGIN, PAGE_H - 70, 10, regular, rgb(0.9, 1, 0.92));
   text("TAX INVOICE", MARGIN, PAGE_H - 92, 12, bold, rgb(1, 1, 1));
 
@@ -197,7 +198,7 @@ export async function GET(
     gray,
   );
   text(
-    `Thank you for your business — GreenGrocer Wholesale`,
+    `Thank you for your business — ${APP_NAME} Wholesale`,
     MARGIN,
     MARGIN + 26,
     9,

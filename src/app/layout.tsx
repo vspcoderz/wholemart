@@ -4,13 +4,13 @@ import RegisterSW from "@/components/RegisterSW";
 
 export const metadata: Metadata = {
   title: {
-    default: "GreenGrocer — Wholesale Ordering",
-    template: "%s · GreenGrocer",
+    default: "OrderApp — Wholesale Ordering",
+    template: "%s · OrderApp",
   },
   description:
     "B2B wholesale ordering for vegetables, English vegetables and fruits.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "GreenGrocer" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "OrderApp" },
 };
 
 export const viewport: Viewport = {

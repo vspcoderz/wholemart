@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/brand";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { eq, sql } from "drizzle-orm";
@@ -116,7 +117,7 @@ export async function GET(request: Request) {
     });
     text(L.title, MARGIN, PAGE_H - 44, 18, rgb(1, 1, 1), bold);
     text(
-      `${L.date}: ${formatDateStr(windowDate)}  ·  GreenGrocer Wholesale`,
+      `${L.date}: ${formatDateStr(windowDate)}  ·  ${APP_NAME} Wholesale`,
       MARGIN,
       PAGE_H - 64,
       10,

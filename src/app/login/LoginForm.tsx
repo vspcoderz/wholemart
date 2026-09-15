@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { Email, Lock, AgricultureRounded } from "@mui/icons-material";
 import { useActionState } from "react";
+import { APP_NAME } from "@/lib/brand";
 import { loginAction, type LoginState } from "./action";
 
 export default function LoginForm() {
@@ -35,7 +36,7 @@ export default function LoginForm() {
           sx={(t) => ({ fontSize: 44, color: t.palette.primary.main })}
         />
         <Typography variant="h5" sx={{ fontWeight: 700, mt: 1 }}>
-          GreenGrocer
+          {APP_NAME}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Wholesale ordering for retailers, hotels &amp; vendors

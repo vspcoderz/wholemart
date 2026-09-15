@@ -17,6 +17,8 @@ const db = drizzle(client);
 
 type SeedProduct = {
   name: string;
+  mr: string;
+  emoji: string;
   category: Category;
   unit: Unit;
   price: number;
@@ -24,46 +26,46 @@ type SeedProduct = {
 
 const seedProducts: SeedProduct[] = [
   // Local vegetables
-  { name: "Tomato", category: "LOCAL_VEG", unit: "KG", price: 30 },
-  { name: "Onion", category: "LOCAL_VEG", unit: "KG", price: 28 },
-  { name: "Potato", category: "LOCAL_VEG", unit: "KG", price: 25 },
-  { name: "Green Chilli", category: "LOCAL_VEG", unit: "KG", price: 60 },
-  { name: "Coriander Leaves", category: "LOCAL_VEG", unit: "BUNDLE", price: 10 },
-  { name: "Curry Leaves", category: "LOCAL_VEG", unit: "BUNDLE", price: 5 },
-  { name: "Brinjal (Small)", category: "LOCAL_VEG", unit: "KG", price: 40 },
-  { name: "Ladies Finger", category: "LOCAL_VEG", unit: "KG", price: 45 },
-  { name: "Carrot (Ooty)", category: "LOCAL_VEG", unit: "KG", price: 50 },
-  { name: "Beetroot", category: "LOCAL_VEG", unit: "KG", price: 35 },
-  { name: "Cauliflower", category: "LOCAL_VEG", unit: "PIECE", price: 35 },
-  { name: "Cabbage", category: "LOCAL_VEG", unit: "PIECE", price: 30 },
-  { name: "Drumstick", category: "LOCAL_VEG", unit: "KG", price: 70 },
-  { name: "Banana Stem", category: "LOCAL_VEG", unit: "PIECE", price: 40 },
+  { name: "Tomato", mr: "टोमॅटो", emoji: "🍅", category: "LOCAL_VEG", unit: "KG", price: 30 },
+  { name: "Onion", mr: "कांदा", emoji: "🧅", category: "LOCAL_VEG", unit: "KG", price: 28 },
+  { name: "Potato", mr: "बटाटा", emoji: "🥔", category: "LOCAL_VEG", unit: "KG", price: 25 },
+  { name: "Green Chilli", mr: "हिरवी मिरची", emoji: "🌶️", category: "LOCAL_VEG", unit: "KG", price: 60 },
+  { name: "Coriander Leaves", mr: "कोथिंबीर", emoji: "🌿", category: "LOCAL_VEG", unit: "BUNDLE", price: 10 },
+  { name: "Curry Leaves", mr: "कढीपत्ता", emoji: "🍃", category: "LOCAL_VEG", unit: "BUNDLE", price: 5 },
+  { name: "Brinjal (Small)", mr: "वांगे", emoji: "🍆", category: "LOCAL_VEG", unit: "KG", price: 40 },
+  { name: "Ladies Finger", mr: "भेंडी", emoji: "🌾", category: "LOCAL_VEG", unit: "KG", price: 45 },
+  { name: "Carrot (Ooty)", mr: "गाजर", emoji: "🥕", category: "LOCAL_VEG", unit: "KG", price: 50 },
+  { name: "Beetroot", mr: "बीटरूट", emoji: "🍠", category: "LOCAL_VEG", unit: "KG", price: 35 },
+  { name: "Cauliflower", mr: "फुलकोबी", emoji: "🥦", category: "LOCAL_VEG", unit: "PIECE", price: 35 },
+  { name: "Cabbage", mr: "कोबी", emoji: "🥬", category: "LOCAL_VEG", unit: "PIECE", price: 30 },
+  { name: "Drumstick", mr: "शेवग्याच्या शेंगा", emoji: "🌱", category: "LOCAL_VEG", unit: "KG", price: 70 },
+  { name: "Banana Stem", mr: "केळीचा गाभा", emoji: "🌴", category: "LOCAL_VEG", unit: "PIECE", price: 40 },
 
   // English (exotic) vegetables
-  { name: "Broccoli", category: "ENGLISH_VEG", unit: "KG", price: 180 },
-  { name: "Zucchini (Green)", category: "ENGLISH_VEG", unit: "KG", price: 160 },
-  { name: "Colored Capsicum (Red/Yellow)", category: "ENGLISH_VEG", unit: "KG", price: 140 },
-  { name: "Cherry Tomato", category: "ENGLISH_VEG", unit: "BOX", price: 220 },
-  { name: "Asparagus", category: "ENGLISH_VEG", unit: "BUNDLE", price: 250 },
-  { name: "Celery", category: "ENGLISH_VEG", unit: "BUNDLE", price: 120 },
-  { name: "Iceberg Lettuce", category: "ENGLISH_VEG", unit: "PIECE", price: 110 },
-  { name: "Baby Corn", category: "ENGLISH_VEG", unit: "KG", price: 150 },
-  { name: "Button Mushroom", category: "ENGLISH_VEG", unit: "KG", price: 200 },
-  { name: "Jalapeño", category: "ENGLISH_VEG", unit: "KG", price: 300 },
-  { name: "Bell Pepper (Green)", category: "ENGLISH_VEG", unit: "KG", price: 90 },
+  { name: "Broccoli", mr: "ब्रोकली", emoji: "🥦", category: "ENGLISH_VEG", unit: "KG", price: 180 },
+  { name: "Zucchini (Green)", mr: "झुकिनी", emoji: "🥒", category: "ENGLISH_VEG", unit: "KG", price: 160 },
+  { name: "Colored Capsicum (Red/Yellow)", mr: "रंगीत ढोबळी मिरची", emoji: "🫑", category: "ENGLISH_VEG", unit: "KG", price: 140 },
+  { name: "Cherry Tomato", mr: "चेरी टोमॅटो", emoji: "🍒", category: "ENGLISH_VEG", unit: "BOX", price: 220 },
+  { name: "Asparagus", mr: "अस्पॅरॅगस", emoji: "🌿", category: "ENGLISH_VEG", unit: "BUNDLE", price: 250 },
+  { name: "Celery", mr: "सेलेरी", emoji: "🥬", category: "ENGLISH_VEG", unit: "BUNDLE", price: 120 },
+  { name: "Iceberg Lettuce", mr: "लेटूस", emoji: "🥗", category: "ENGLISH_VEG", unit: "PIECE", price: 110 },
+  { name: "Baby Corn", mr: "बेबी कॉर्न", emoji: "🌽", category: "ENGLISH_VEG", unit: "KG", price: 150 },
+  { name: "Button Mushroom", mr: "मशरूम", emoji: "🍄", category: "ENGLISH_VEG", unit: "KG", price: 200 },
+  { name: "Jalapeño", mr: "जलपेनो", emoji: "🌶️", category: "ENGLISH_VEG", unit: "KG", price: 300 },
+  { name: "Bell Pepper (Green)", mr: "ढोबळी मिरची (हिरवी)", emoji: "🫑", category: "ENGLISH_VEG", unit: "KG", price: 90 },
 
   // Fruits
-  { name: "Banana (Robusta)", category: "FRUITS", unit: "KG", price: 40 },
-  { name: "Apple (Shimla)", category: "FRUITS", unit: "KG", price: 160 },
-  { name: "Pomegranate", category: "FRUITS", unit: "KG", price: 140 },
-  { name: "Papaya", category: "FRUITS", unit: "KG", price: 35 },
-  { name: "Watermelon", category: "FRUITS", unit: "PIECE", price: 60 },
-  { name: "Pineapple", category: "FRUITS", unit: "PIECE", price: 70 },
-  { name: "Grapes (Black Seedless)", category: "FRUITS", unit: "KG", price: 110 },
-  { name: "Orange (Nagpur)", category: "FRUITS", unit: "KG", price: 90 },
-  { name: "Strawberry", category: "FRUITS", unit: "BOX", price: 250 },
-  { name: "Kiwi", category: "FRUITS", unit: "PIECE", price: 35 },
-  { name: "Avocado", category: "FRUITS", unit: "PIECE", price: 120 },
+  { name: "Banana (Robusta)", mr: "केळी", emoji: "🍌", category: "FRUITS", unit: "KG", price: 40 },
+  { name: "Apple (Shimla)", mr: "सफरचंद", emoji: "🍎", category: "FRUITS", unit: "KG", price: 160 },
+  { name: "Pomegranate", mr: "डाळिंब", emoji: "🔴", category: "FRUITS", unit: "KG", price: 140 },
+  { name: "Papaya", mr: "पपई", emoji: "🧡", category: "FRUITS", unit: "KG", price: 35 },
+  { name: "Watermelon", mr: "टरबूज", emoji: "🍉", category: "FRUITS", unit: "PIECE", price: 60 },
+  { name: "Pineapple", mr: "अननस", emoji: "🍍", category: "FRUITS", unit: "PIECE", price: 70 },
+  { name: "Grapes (Black Seedless)", mr: "द्राक्षे", emoji: "🍇", category: "FRUITS", unit: "KG", price: 110 },
+  { name: "Orange (Nagpur)", mr: "संत्री", emoji: "🍊", category: "FRUITS", unit: "KG", price: 90 },
+  { name: "Strawberry", mr: "स्ट्रॉबेरी", emoji: "🍓", category: "FRUITS", unit: "BOX", price: 250 },
+  { name: "Kiwi", mr: "किवी", emoji: "🥝", category: "FRUITS", unit: "PIECE", price: 35 },
+  { name: "Avocado", mr: "अवोकॅडो", emoji: "🥑", category: "FRUITS", unit: "PIECE", price: 120 },
 ];
 
 async function main() {

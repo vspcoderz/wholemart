@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import {
@@ -77,8 +77,19 @@ export async function toggleProduct(id: number, active: boolean) {
 
 export async function deleteProduct(id: number) {
   await requireAdmin();
-  // Orders snapshot name/unit/price, so deleting is safe historically.
-  await db.delete(products).where(eq(products.id, id));
+  try {
+    // order_items keep their name/unit/price snapshots; product_id nulls out.
+    await db.delete(products).where(eq(products.id, id));
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    return {
+      ok: false as const,
+      error:
+        code === "23503"
+          ? "This product is referenced by active orders — disable it instead."
+          : "Delete failed.",
+    };
+  }
   revalidatePath("/admin/products");
   revalidatePath("/vendor");
   return { ok: true as const };
@@ -149,6 +160,33 @@ export async function toggleVendor(id: number, active: boolean) {
   await requireAdmin();
   await db.update(users).set({ active }).where(eq(users.id, id));
   revalidatePath("/admin/vendors");
+  return { ok: true as const };
+}
+
+/**
+ * Delete a retailer. Their order history is deleted with them (FK cascade),
+ * so the UI must pass force=true after a second confirmation.
+ */
+export async function deleteVendor(id: number, force = false) {
+  await requireAdmin();
+  const [v] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  if (!v || v.role !== "VENDOR") {
+    return { ok: false as const, error: "Not a retailer account." };
+  }
+  const [oc] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(eq(orders.vendorId, id));
+  if (oc.n > 0 && !force) {
+    return { ok: false as const, error: `HAS_ORDERS:${oc.n}` };
+  }
+  await db.delete(users).where(eq(users.id, id));
+  revalidatePath("/admin/vendors");
+  revalidatePath("/admin");
   return { ok: true as const };
 }
 
