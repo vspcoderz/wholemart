@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 export type Lang = "mr" | "en";
 
@@ -133,12 +133,17 @@ export function LangProvider({
   defaultLang: Lang;
   children: React.ReactNode;
 }) {
-  const [lang, setLangState] = useState<Lang>(defaultLang);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "en" || saved === "mr") setLangState(saved);
-  }, []);
+  // Server-rendered default first; saved preference hydrates via lazy init
+  // (no effect-setState cascade, no language flash on load).
+  const [lang, setLangState] = useState<Lang>(() => {
+    if (typeof window === "undefined") return defaultLang;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved === "en" || saved === "mr" ? saved : defaultLang;
+    } catch {
+      return defaultLang;
+    }
+  });
 
   const setLang = (l: Lang) => {
     setLangState(l);

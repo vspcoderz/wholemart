@@ -25,6 +25,7 @@ import {
   Settings,
   AgricultureRounded,
   Logout,
+  PointOfSale,
 } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -33,7 +34,8 @@ import { APP_NAME } from "@/lib/brand";
 const NAV = [
   { label: "Home", href: "/admin", icon: Dashboard },
   { label: "Orders", href: "/admin/orders", icon: ReceiptLong },
-  { label: "Manifest", href: "/admin/manifest", icon: Summarize },
+  { label: "Billing", href: "/admin/billing", icon: PointOfSale },
+  { label: "Accounting", href: "/admin/manifest", icon: Summarize },
   { label: "Products", href: "/admin/products", icon: Inventory2 },
   { label: "Retailers", href: "/admin/vendors", icon: Storefront },
   { label: "Settings", href: "/admin/settings", icon: Settings },

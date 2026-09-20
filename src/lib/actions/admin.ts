@@ -218,10 +218,19 @@ export async function adjustOrderItems(
   edits: AdminItemEdit[],
 ) {
   await requireAdmin();
+  // Reverting a line to its ordered qty clears the override (NULL) instead
+  // of storing a redundant confirmed value.
+  const current = await db
+    .select({ id: orderItems.id, quantity: orderItems.quantity })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  const orderedQty = new Map(current.map((r) => [r.id, Number(r.quantity)]));
   for (const e of edits) {
+    if (!Number.isFinite(e.quantity) || e.quantity < 0) continue;
+    const reset = orderedQty.get(e.itemId) === e.quantity;
     await db
       .update(orderItems)
-      .set({ confirmedQuantity: String(e.quantity) })
+      .set({ confirmedQuantity: reset ? null : String(e.quantity) })
       .where(and(eq(orderItems.id, e.itemId), eq(orderItems.orderId, orderId)));
   }
   await db

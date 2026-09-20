@@ -55,9 +55,8 @@ function trim(n: number): string {
 export function lineTotal(
   qty: number | string,
   unitPrice: number | string,
-  unit: Unit,
 ): number {
-  // For grams the stored quantity is in grams; unit price is per gram.
+  // Quantities are stored in their line unit; unit price is per that unit.
   return Number(qty) * Number(unitPrice);
 }
 

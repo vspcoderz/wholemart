@@ -1,11 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 
-const config = {
+const config: NextAuthConfig = {
   session: { strategy: "jwt" as const },
   pages: { signIn: "/login" },
   providers: [
@@ -37,18 +37,23 @@ const config = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user?: any }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.role = user.role as "ADMIN" | "VENDOR";
+        token.role = user.role;
         token.uid = Number(user.id);
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: any }) {
-      if (session.user) {
-        session.user.role = token.role as "ADMIN" | "VENDOR";
-        session.user.id = token.uid as number;
-      }
+    async session({ session, token }) {
+      // session.user.id is typed `never` (our numeric id intersects Auth.js's
+      // default `id?: string`), so narrow once here; every other file only
+      // reads it, which typechecks fine.
+      const user = session.user as unknown as {
+        id: number;
+        role: "ADMIN" | "VENDOR";
+      };
+      if (token.role) user.role = token.role;
+      if (token.uid !== undefined) user.id = token.uid;
       return session;
     },
   },

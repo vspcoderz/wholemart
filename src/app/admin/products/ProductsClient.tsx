@@ -9,9 +9,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
   MenuItem,
+  Select,
   Snackbar,
   Alert,
   Switch,
@@ -25,7 +28,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Add, Edit, Delete, Visibility, VisibilityOff } from "@mui/icons-material";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useMediaQuery, useTheme } from "@mui/material";
 import { useRouter } from "next/navigation";
 import type { Category, Unit } from "@/db/schema";
@@ -66,6 +69,29 @@ export default function ProductsClient({ products }: { products: Row[] }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<ProductInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState("ALL");
+  const [active, setActive] = useState("ALL");
+  const [sort, setSort] = useState("name");
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = products.filter(
+      (p) =>
+        (cat === "ALL" || p.category === cat) &&
+        (active === "ALL" ||
+          (active === "ACTIVE" ? p.active : !p.active)) &&
+        (q === "" ||
+          p.name.toLowerCase().includes(q) ||
+          (p.nameMr ?? "").includes(query.trim())),
+    );
+    rows.sort((a, b) => {
+      if (sort === "price-desc") return b.pricePerUnit - a.pricePerUnit;
+      if (sort === "price-asc") return a.pricePerUnit - b.pricePerUnit;
+      return a.name.localeCompare(b.name);
+    });
+    return rows;
+  }, [products, query, cat, active, sort]);
 
   function submit() {
     if (!editing) return;
@@ -96,10 +122,47 @@ export default function ProductsClient({ products }: { products: Row[] }) {
         </Button>
       </Box>
 
+      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+        <TextField
+          size="small"
+          label="Search products"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          sx={{ flexGrow: 1, minWidth: 160 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>Category</InputLabel>
+          <Select label="Category" value={cat} onChange={(e) => setCat(e.target.value)}>
+            <MenuItem value="ALL">All</MenuItem>
+            {CATEGORIES.map((c) => (
+              <MenuItem key={c} value={c}>
+                {CATEGORY_LABELS[c]}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 110 }}>
+          <InputLabel>Status</InputLabel>
+          <Select label="Status" value={active} onChange={(e) => setActive(e.target.value)}>
+            <MenuItem value="ALL">All</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="HIDDEN">Hidden</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Sort</InputLabel>
+          <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <MenuItem value="name">Name A–Z</MenuItem>
+            <MenuItem value="price-desc">Price ↓</MenuItem>
+            <MenuItem value="price-asc">Price ↑</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       {/* Mobile: cards */}
       {!isDesktop && (
         <Box>
-          {products.map((p) => (
+          {visible.map((p) => (
             <Card
               key={p.id}
               variant="outlined"
@@ -198,7 +261,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {products.map((p) => (
+              {visible.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     <Typography sx={{ fontWeight: 600 }}>

@@ -38,19 +38,21 @@ export function CartProvider({
   children: React.ReactNode;
   initialItems: CartItemInput[];
 }) {
-  const [items, setItems] = useState<CartItemInput[]>(initialItems);
-
   // Server-provided items are the source of truth on first load; afterwards
-  // the cart survives navigation via sessionStorage.
-  useEffect(() => {
-    if (initialItems.length === 0) {
-      try {
-        const raw = sessionStorage.getItem(STORAGE_KEY);
-        if (raw) setItems(dedupe(JSON.parse(raw)));
-      } catch {}
+  // the cart survives navigation via sessionStorage. Lazy init keeps this out
+  // of an effect (no cascading render, no hydration flash).
+  const [items, setItems] = useState<CartItemInput[]>(() => {
+    if (initialItems.length > 0) return initialItems;
+    try {
+      const raw =
+        typeof window === "undefined"
+          ? null
+          : sessionStorage.getItem(STORAGE_KEY);
+      return raw ? dedupe(JSON.parse(raw)) : initialItems;
+    } catch {
+      return initialItems;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   useEffect(() => {
     try {

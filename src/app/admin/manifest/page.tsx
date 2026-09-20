@@ -2,13 +2,13 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, users } from "@/db/schema";
 import { Box, Button, Card, CardContent, Typography, TextField, Chip } from "@mui/material";
-import { Print, PictureAsPdf } from "@mui/icons-material";
+import { PictureAsPdf } from "@mui/icons-material";
 import PrintButton from "./PrintButton";
 import { getWindowState } from "@/lib/window";
-import { CATEGORY_LABELS, UNIT_LABELS, formatDateStr } from "@/lib/format";
-import type { Category, Unit } from "@/db/schema";
+import { UNIT_LABELS, formatDateStr } from "@/lib/format";
+import type { Unit } from "@/db/schema";
 
-export const metadata = { title: "Delivery manifest" };
+export const metadata = { title: "Accounting" };
 
 export default async function ManifestPage(props: {
   searchParams: Promise<{ date?: string }>;
@@ -118,7 +118,7 @@ export default async function ManifestPage(props: {
               </thead>
               <tbody>
                 {productTotals.map((p) => (
-                  <tr key={p.productId}>
+                  <tr key={`${p.productId ?? "deleted"}-${p.name}-${p.unit}`}>
                     <td style={{ padding: 8, borderBottom: "1px solid", borderColor: "divider" }}>
                       <strong>{p.name}</strong>
                     </td>

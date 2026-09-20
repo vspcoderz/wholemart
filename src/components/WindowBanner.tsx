@@ -16,13 +16,12 @@ type Props = {
 };
 
 function useCountdown(iso: string | null) {
-  const [now, setNow] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
-    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (!iso || now === null) return null;
+  if (!iso) return null;
   const diff = new Date(iso).getTime() - now;
   if (diff <= 0) return "expired";
   const h = Math.floor(diff / 3_600_000);

@@ -164,7 +164,7 @@ export async function GET(request: Request) {
     y -= ROW_H;
 
     for (const p of productTotals) {
-      if (y < MARGIN + 40) newPage();
+      if (y < BOTTOM_LIMIT) newPage();
       text(p.name, MARGIN, y, 10);
       text(`${Number(p.needed)} ${UNIT_LABELS[p.unit as Unit]}`, MARGIN + 300, y, 10);
       text(String(p.shops), MARGIN + 430, y, 10);
@@ -191,7 +191,7 @@ export async function GET(request: Request) {
     y -= 32;
 
     for (const it of o.items) {
-      if (y < MARGIN + 30) newPage();
+      if (y < BOTTOM_LIMIT) newPage();
       text(`•  ${it.name}`, MARGIN + 14, y, 10);
       text(`${Number(it.qty)} ${UNIT_LABELS[it.unit as Unit]}`, MARGIN + 320, y, 10);
       y -= ROW_H - 2;

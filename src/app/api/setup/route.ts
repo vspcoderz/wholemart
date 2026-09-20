@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { products, settings, users } from "@/db/schema";
 import type { Category, Unit } from "@/db/schema";
 
 const seedProducts: { name: string; mr: string; emoji: string; category: Category; unit: Unit; price: number }[] = [
@@ -118,7 +116,10 @@ export async function GET(req: Request) {
         vendor: { email: "hotel@wholesale.local", password: "vendor123" },
       },
     });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "Setup failed" },
+      { status: 500 },
+    );
   }
 }

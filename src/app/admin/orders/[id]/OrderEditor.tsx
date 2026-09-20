@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  MenuItem,
   Snackbar,
   Alert,
   Table,
@@ -58,9 +57,17 @@ export default function OrderEditor({
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
 
   function save() {
+    // Compare against the effective current value (confirmed ?? ordered) so
+    // reverting an adjusted line back to its ordered qty actually persists.
     const changed = items
-      .filter((i) => Number(edits[i.id]) !== i.quantity)
-      .map((i) => ({ itemId: i.id, quantity: Number(edits[i.id]) }));
+      .map((i) => ({ i, v: Number(edits[i.id]) }))
+      .filter(
+        ({ i, v }) =>
+          Number.isFinite(v) &&
+          v >= 0 &&
+          v !== (i.confirmedQuantity ?? i.quantity),
+      )
+      .map(({ i, v }) => ({ itemId: i.id, quantity: v }));
     startTransition(async () => {
       const res = await adjustOrderItems(orderId, note, changed);
       if (res.ok) {

@@ -9,7 +9,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Snackbar,
   Alert,
   Table,
@@ -22,7 +26,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   saveVendor,
@@ -60,6 +64,26 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<VendorInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState("ALL");
+  const [sort, setSort] = useState("name");
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = vendors.filter(
+      (v) =>
+        (active === "ALL" || (active === "ACTIVE" ? v.active : !v.active)) &&
+        (q === "" ||
+          v.businessName.toLowerCase().includes(q) ||
+          v.email.toLowerCase().includes(q) ||
+          (v.phone ?? "").includes(q)),
+    );
+    rows.sort((a, b) => {
+      if (sort === "orders") return b.orderCount - a.orderCount;
+      return a.businessName.localeCompare(b.businessName);
+    });
+    return rows;
+  }, [vendors, query, active, sort]);
 
   function doDelete(v: Row) {
     const msg =
@@ -108,10 +132,35 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
         can&apos;t sign themselves up.
       </Typography>
 
+      <Box sx={{ display: "flex", gap: 1, mb: 1, flexWrap: "wrap" }}>
+        <TextField
+          size="small"
+          label="Search retailers"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          sx={{ flexGrow: 1, minWidth: 160 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 110 }}>
+          <InputLabel>Status</InputLabel>
+          <Select label="Status" value={active} onChange={(e) => setActive(e.target.value)}>
+            <MenuItem value="ALL">All</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="DISABLED">Disabled</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>Sort</InputLabel>
+          <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <MenuItem value="name">Name A–Z</MenuItem>
+            <MenuItem value="orders">Most orders</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       {/* Mobile: cards */}
       {!isDesktop && (
         <Box sx={{ mt: 2 }}>
-          {vendors.map((v) => (
+          {visible.map((v) => (
             <Card
               key={v.id}
               variant="outlined"
@@ -189,7 +238,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {vendors.map((v) => (
+              {visible.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell>
                     <Typography sx={{ fontWeight: 600 }}>{v.businessName}</Typography>
