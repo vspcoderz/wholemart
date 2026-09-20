@@ -18,6 +18,8 @@ import {
   Snackbar,
   Alert,
   Switch,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -70,7 +72,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
   const [editing, setEditing] = useState<ProductInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [query, setQuery] = useState("");
-  const [cat, setCat] = useState("ALL");
+  const [cat, setCat] = useState<"ALL" | Category>("ALL");
   const [active, setActive] = useState("ALL");
   const [sort, setSort] = useState("name");
 
@@ -130,17 +132,6 @@ export default function ProductsClient({ products }: { products: Row[] }) {
           onChange={(e) => setQuery(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 160 }}
         />
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Category</InputLabel>
-          <Select label="Category" value={cat} onChange={(e) => setCat(e.target.value)}>
-            <MenuItem value="ALL">All</MenuItem>
-            {CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
         <FormControl size="small" sx={{ minWidth: 110 }}>
           <InputLabel>Status</InputLabel>
           <Select label="Status" value={active} onChange={(e) => setActive(e.target.value)}>
@@ -158,6 +149,19 @@ export default function ProductsClient({ products }: { products: Row[] }) {
           </Select>
         </FormControl>
       </Box>
+
+      <Tabs
+        value={cat}
+        onChange={(_, v) => setCat(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 2, "& .MuiTab-root": { minHeight: 44 } }}
+      >
+        <Tab value="ALL" label="All" />
+        {CATEGORIES.map((c) => (
+          <Tab key={c} value={c} label={CATEGORY_LABELS[c]} />
+        ))}
+      </Tabs>
 
       {/* Mobile: cards */}
       {!isDesktop && (

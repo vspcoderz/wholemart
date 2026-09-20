@@ -21,7 +21,6 @@ export default async function VendorHomePage() {
     emoji: p.emoji,
     category: p.category,
     unit: p.unit,
-    price: Number(p.pricePerUnit),
     imageUrl: p.imageUrl,
   }));
 

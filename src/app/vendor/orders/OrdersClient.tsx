@@ -84,7 +84,9 @@ export default function OrdersClient({
                 )}
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {o.itemCount} {t("items")} · {inr(o.total)} · {t("payOnDelivery")}
+                {o.itemCount} {t("items")} · {t("payOnDelivery")}
+                {(o.status === "CONFIRMED" || o.status === "DELIVERED") &&
+                  ` · ${inr(o.total)}`}
               </Typography>
             </Box>
             <Chip

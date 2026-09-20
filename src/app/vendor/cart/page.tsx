@@ -22,7 +22,6 @@ export default async function CartPage() {
     nameMr: p.nameMr,
     emoji: p.emoji,
     unit: p.unit,
-    price: Number(p.pricePerUnit),
   }));
 
   return <CartClient catalog={catalog} windowOpen={win.open} />;

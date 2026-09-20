@@ -20,7 +20,7 @@ import { Add, Remove, Search, ShoppingCart } from "@mui/icons-material";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, Unit } from "@/db/schema";
-import { CATEGORIES, UNIT_LABELS, UNIT_STEPS, inr } from "@/lib/format";
+import { CATEGORIES, UNIT_LABELS, UNIT_STEPS } from "@/lib/format";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang, type StringKey } from "@/lib/i18n";
 import { saveOrder } from "@/lib/actions/orders";
@@ -32,7 +32,6 @@ export type CatalogProduct = {
   emoji: string | null;
   category: Category;
   unit: Unit;
-  price: number;
   imageUrl: string | null;
 };
 
@@ -64,7 +63,7 @@ export default function CatalogClient({
   windowOpen: boolean;
 }) {
   const router = useRouter();
-  const { items, setQty } = useCart();
+  const { items, setQty, clear } = useCart();
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"ALL" | Category>("ALL");
   const [search, setSearch] = useState("");
@@ -101,6 +100,7 @@ export default function CatalogClient({
     startTransition(async () => {
       const res = await saveOrder(items.filter((i) => i.quantity > 0));
       if (res.ok) {
+        clear();
         setToast({ msg: t("orderSaved"), severity: "success" });
         router.refresh();
       } else {
@@ -248,7 +248,7 @@ export default function CatalogClient({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Typography variant="body2" color="text.secondary">
-                      {inr(p.price)}/{UNIT_LABELS[p.unit]}
+                      {UNIT_LABELS[p.unit]}
                     </Typography>
                     {selected && (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>

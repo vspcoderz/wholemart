@@ -9,18 +9,17 @@ import {
   Snackbar,
   Alert,
   Typography,
-  Divider,
 } from "@mui/material";
 import { Add, Remove } from "@mui/icons-material";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Unit } from "@/db/schema";
-import { UNIT_LABELS, UNIT_STEPS, inr } from "@/lib/format";
+import { UNIT_LABELS, UNIT_STEPS } from "@/lib/format";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang } from "@/lib/i18n";
 import { saveOrder } from "@/lib/actions/orders";
 
-type CartProduct = { id: number; name: string; nameMr: string | null; emoji: string | null; unit: Unit; price: number };
+type CartProduct = { id: number; name: string; nameMr: string | null; emoji: string | null; unit: Unit };
 
 export default function CartClient({
   catalog,
@@ -30,7 +29,7 @@ export default function CartClient({
   windowOpen: boolean;
 }) {
   const router = useRouter();
-  const { items, setQty, clear } = useCart();
+  const { items, setQty, clear: cartClear } = useCart();
   const { t, lang } = useLang();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
@@ -40,19 +39,20 @@ export default function CartClient({
       items
         .map((i) => {
           const p = catalog.find((c) => c.id === i.productId);
-          return p ? { ...p, quantity: i.quantity, total: i.quantity * p.price } : null;
+          return p ? { ...p, quantity: i.quantity } : null;
         })
-        .filter((r): r is CartProduct & { quantity: number; total: number } => r !== null)
+        .filter((r): r is CartProduct & { quantity: number } => r !== null)
         .map((r) => [r.id, r]),
     ).values(),
   ];
 
-  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+  const itemCount = rows.length;
 
   function submit() {
     startTransition(async () => {
       const res = await saveOrder(items.filter((i) => i.quantity > 0));
       if (res.ok) {
+        cartClear();
         setToast({ msg: t("orderSaved"), severity: "success" });
         router.push("/vendor/orders");
       } else {
@@ -105,7 +105,7 @@ export default function CartClient({
               {lang === "mr" && r.nameMr ? r.nameMr : r.name}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {inr(r.price)} / {UNIT_LABELS[r.unit]} · {inr(r.total)}
+              per {UNIT_LABELS[r.unit]}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -143,14 +143,9 @@ export default function CartClient({
         </Card>
       ))}
 
-      <Divider sx={{ my: 2 }} />
-
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2, px: 0.5 }}>
         <Typography variant="h6">
-          {t("total")} ({t("payOnDelivery")})
-        </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {inr(grandTotal)}
+          {itemCount} {itemCount === 1 ? "item" : "items"} ({t("payOnDelivery")})
         </Typography>
       </Box>
 
@@ -169,7 +164,7 @@ export default function CartClient({
             color="error"
             size="large"
             onClick={() => {
-              clear();
+              cartClear();
               router.refresh();
             }}
           >

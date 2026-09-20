@@ -2,21 +2,12 @@ import { Suspense } from "react";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, products, users } from "@/db/schema";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  Skeleton,
-  TextField,
-  Typography,
-} from "@mui/material";
 import { getWindowState } from "@/lib/window";
 import { formatDateStr, inr } from "@/lib/format";
 import BillingClient, {
   type BillingOrder,
 } from "./BillingClient";
+import BillingHeader from "./BillingHeader";
 
 export const metadata = { title: "Billing" };
 
@@ -100,68 +91,15 @@ export default async function BillingPage(props: {
   ];
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 2,
-          mb: 2,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Billing
-          </Typography>
-          <Typography color="text.secondary">
-            {formatDateStr(windowDate)} window · pick orders, set today&apos;s
-            rate, finalize
-          </Typography>
-        </Box>
-        <form>
-          <TextField
-            name="date"
-            type="date"
-            label="Window date"
-            defaultValue={windowDate}
-            size="small"
-            sx={{ width: 200 }}
-          />
-          <Button type="submit" variant="contained" sx={{ ml: 1 }}>
-            View
-          </Button>
-        </form>
-      </Box>
-
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {cards.map((c) => (
-          <Grid size={{ xs: 6, md: 3 }} key={c.label}>
-            <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
-              <CardContent>
-                <Typography variant="caption" color="text.secondary">
-                  {c.label}
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {c.value}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Suspense
-        fallback={
-          <Card variant="outlined" sx={{ borderRadius: 1.5, p: 2 }}>
-            <Skeleton variant="rectangular" height={56} sx={{ mb: 1 }} />
-            <Skeleton variant="rectangular" height={220} />
-          </Card>
-        }
-      >
+    <>
+      <BillingHeader
+        windowDate={windowDate}
+        windowLabel={`${formatDateStr(windowDate)} window · pick orders, set today's rate, finalize`}
+        cards={cards}
+      />
+      <Suspense fallback={<p>Loading billing…</p>}>
         <BillingClient windowDate={windowDate} orders={billedOrders} />
       </Suspense>
-    </Box>
+    </>
   );
 }

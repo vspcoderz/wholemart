@@ -2,6 +2,7 @@
 
 import {
   Box,
+  Button,
   Card,
   Chip,
   FormControl,
@@ -16,6 +17,7 @@ import { useMemo, useState } from "react";
 import {
   ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
+  formatDateStr,
   inr,
 } from "@/lib/format";
 import { usePollingRefresh } from "@/lib/polling";
@@ -29,7 +31,15 @@ export type AdminOrderRow = {
   itemCount: number;
 };
 
-export default function OrdersClient({ rows }: { rows: AdminOrderRow[] }) {
+export default function OrdersClient({
+  rows,
+  windowDate,
+  grandTotal,
+}: {
+  rows: AdminOrderRow[];
+  windowDate: string;
+  grandTotal: number;
+}) {
   usePollingRefresh(15000);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -52,6 +62,39 @@ export default function OrdersClient({ rows }: { rows: AdminOrderRow[] }) {
 
   return (
     <Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 2,
+          mb: 2,
+        }}
+      >
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          Orders
+        </Typography>
+        <form>
+          <TextField
+            name="date"
+            type="date"
+            label="Window date"
+            defaultValue={windowDate}
+            size="small"
+            sx={{ width: 200 }}
+          />
+          <Button type="submit" variant="contained" sx={{ ml: 1 }}>
+            View
+          </Button>
+        </form>
+      </Box>
+
+      <Typography color="text.secondary" gutterBottom>
+        {formatDateStr(windowDate)} window · {rows.length} orders ·{" "}
+        {inr(grandTotal)} total
+      </Typography>
+
       <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
         <TextField
           size="small"
@@ -92,7 +135,10 @@ export default function OrdersClient({ rows }: { rows: AdminOrderRow[] }) {
       </Box>
 
       {visible.length === 0 ? (
-        <Card variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 1.5 }}>
+        <Card
+          variant="outlined"
+          sx={{ p: 4, textAlign: "center", borderRadius: 1.5 }}
+        >
           <Typography color="text.secondary">No orders match.</Typography>
         </Card>
       ) : (
@@ -102,7 +148,10 @@ export default function OrdersClient({ rows }: { rows: AdminOrderRow[] }) {
             href={`/admin/orders/${o.id}`}
             style={{ textDecoration: "none" }}
           >
-            <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 1, p: 2 }}>
+            <Card
+              variant="outlined"
+              sx={{ borderRadius: 1.5, mb: 1, p: 2 }}
+            >
               <Box
                 sx={{
                   display: "flex",
