@@ -17,7 +17,7 @@ async function requireAdmin() {
 function touch() {
   revalidatePath("/admin/accounting");
   revalidatePath("/admin");
-  revalidatePath("/vendor/account");
+  revalidatePath("/vendor/transactions");
 }
 
 /** Record money received from a retailer — reduces their outstanding balance. */

@@ -4,13 +4,13 @@ import RegisterSW from "@/components/RegisterSW";
 
 export const metadata: Metadata = {
   title: {
-    default: "OrderApp — Wholesale Ordering",
-    template: "%s · OrderApp",
+    default: "Vaibhav Fruits — Wholesale Ordering",
+    template: "%s · Vaibhav Fruits",
   },
   description:
     "B2B wholesale ordering for vegetables, English vegetables and fruits.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "OrderApp" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Vaibhav Fruits" },
 };
 
 export const viewport: Viewport = {

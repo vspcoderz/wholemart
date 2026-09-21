@@ -15,9 +15,10 @@ export default async function AdminHistoryPage(props: {
   const dateFilter =
     date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
 
+  // History shows billed orders only — unbilled (PLACED) ones live in Billing.
   const where = dateFilter
-    ? sql`${orders.windowDate} = ${dateFilter}`
-    : sql`true`;
+    ? sql`${orders.windowDate} = ${dateFilter} and ${orders.status} <> 'PLACED'`
+    : sql`${orders.status} <> 'PLACED'`;
 
   // Latest orders across ALL windows (capped — fast, no N+1).
   const rows = await db
@@ -27,6 +28,7 @@ export default async function AdminHistoryPage(props: {
       windowDate: orders.windowDate,
       placedAt: orders.placedAt,
       vendorName: users.businessName,
+      tier: users.tier,
       total: sql<string>`coalesce(sum(coalesce(${orderItems.confirmedQuantity}, ${orderItems.quantity}) * ${orderItems.unitPrice}), 0)`,
       itemCount: sql<number>`count(${orderItems.id})::int`,
     })
@@ -40,6 +42,7 @@ export default async function AdminHistoryPage(props: {
       orders.windowDate,
       orders.placedAt,
       users.businessName,
+      users.tier,
     )
     .orderBy(desc(orders.placedAt))
     .limit(ORDER_LIMIT);
@@ -70,6 +73,7 @@ export default async function AdminHistoryPage(props: {
       rows={rows.map((o) => ({
         id: o.id,
         status: o.status,
+        tier: o.tier,
         windowDate: o.windowDate,
         placedAt:
           o.placedAt instanceof Date

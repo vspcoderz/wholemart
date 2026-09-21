@@ -88,7 +88,7 @@ export async function saveOrder(items: CartItemInput[]): Promise<PlaceOrderResul
   );
 
   revalidatePath("/vendor");
-  revalidatePath("/vendor/orders");
+  revalidatePath("/vendor/transactions");
   revalidatePath("/admin");
   return { ok: true, orderId: order.id };
 }
@@ -119,7 +119,7 @@ export async function cancelMyOrder(): Promise<PlaceOrderResult> {
   }
   await db.delete(orders).where(eq(orders.id, order.id));
   revalidatePath("/vendor");
-  revalidatePath("/vendor/orders");
+  revalidatePath("/vendor/transactions");
   return { ok: true, orderId: order.id };
 }
 

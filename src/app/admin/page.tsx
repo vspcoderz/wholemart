@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, products, users } from "@/db/schema";
+import { getSettings } from "@/lib/window";
 import DashboardClient from "./DashboardClient";
 
 export const metadata = { title: "Statistics" };
@@ -18,6 +19,7 @@ export default async function AdminDashboard() {
     topProducts,
     topRetailers,
     recentOrders,
+    cfg,
   ] = await Promise.all([
     db
       .select({
@@ -101,10 +103,13 @@ export default async function AdminDashboard() {
       )
       .orderBy(desc(orders.placedAt))
       .limit(8),
+    getSettings(),
   ]);
 
   return (
     <DashboardClient
+      windowStartMinutes={cfg.windowStartMinutes}
+      windowEndMinutes={cfg.windowEndMinutes}
       vendorCount={counts.vendors}
       productCount={counts.activeProducts}
       totalOrders={counts.totalOrders}

@@ -28,6 +28,7 @@ export default async function BillingPage(props: {
       id: orders.id,
       status: orders.status,
       vendorName: users.businessName,
+      tier: users.tier,
     })
     .from(orders)
     .innerJoin(users, eq(users.id, orders.vendorId))
@@ -78,6 +79,7 @@ export default async function BillingPage(props: {
     id: o.id,
     status: o.status,
     vendorName: o.vendorName,
+    tier: o.tier,
     items: itemsByOrder.get(o.id) ?? [],
   }));
 

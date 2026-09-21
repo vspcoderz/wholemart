@@ -1,4 +1,4 @@
-import type { Category, Unit } from "@/db/schema";
+import type { Category, Tier, Unit } from "@/db/schema";
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   LOCAL_VEG: "Vegetables",
@@ -59,6 +59,34 @@ export function lineTotal(
   // Quantities are stored in their line unit; unit price is per that unit.
   return Number(qty) * Number(unitPrice);
 }
+
+export const TIERS: Tier[] = [
+  "VIP",
+  "TIER_1",
+  "TIER_2",
+  "TIER_3",
+  "TIER_4",
+  "TIER_5",
+];
+
+export const TIER_LABELS: Record<Tier, string> = {
+  VIP: "VIP",
+  TIER_1: "Tier 1",
+  TIER_2: "Tier 2",
+  TIER_3: "Tier 3",
+  TIER_4: "Tier 4",
+  TIER_5: "Tier 5",
+};
+
+/** Lower = more important. VIP always first. */
+export const TIER_RANK: Record<Tier, number> = {
+  VIP: 0,
+  TIER_1: 1,
+  TIER_2: 2,
+  TIER_3: 3,
+  TIER_4: 4,
+  TIER_5: 5,
+};
 
 export const ORDER_STATUS_LABELS = {
   PLACED: "Placed",

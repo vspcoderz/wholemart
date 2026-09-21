@@ -35,12 +35,14 @@ import {
 } from "@mui/icons-material";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Category, Unit } from "@/db/schema";
+import type { Category, Tier, Unit } from "@/db/schema";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
   ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
+  TIER_LABELS,
+  TIER_RANK,
   UNITS,
   UNIT_LABELS,
   inr,
@@ -63,6 +65,7 @@ export type BillingOrder = {
   id: number;
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
   vendorName: string;
+  tier: Tier;
   items: BillingItem[];
 };
 
@@ -116,7 +119,8 @@ export default function BillingClient({
 
   const [vendorQuery, setVendorQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [orderSort, setOrderSort] = useState<"vendor" | "total">("vendor");
+  const [tierFilter, setTierFilter] = useState<string>("ALL");
+  const [orderSort, setOrderSort] = useState<"tier" | "vendor" | "total">("tier");
   const [productQuery, setProductQuery] = useState("");
   const [catFilter, setCatFilter] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -144,16 +148,21 @@ export default function BillingClient({
     const rows = orders.filter(
       (o) =>
         (statusFilter === "ALL" || o.status === statusFilter) &&
+        (tierFilter === "ALL" || o.tier === tierFilter) &&
         (q === "" || o.vendorName.toLowerCase().includes(q)),
     );
-    rows.sort((a, b) =>
-      orderSort === "vendor"
-        ? a.vendorName.localeCompare(b.vendorName)
-        : orderValue(b) - orderValue(a),
-    );
+    rows.sort((a, b) => {
+      if (orderSort === "vendor")
+        return a.vendorName.localeCompare(b.vendorName);
+      if (orderSort === "total") return orderValue(b) - orderValue(a);
+      return (
+        TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+        a.vendorName.localeCompare(b.vendorName)
+      );
+    });
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, vendorQuery, statusFilter, orderSort, edits]);
+  }, [orders, vendorQuery, statusFilter, tierFilter, orderSort, edits]);
 
   const selectedOrders = useMemo(
     () => orders.filter((o) => selected.has(o.id)),
@@ -330,14 +339,31 @@ export default function BillingClient({
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 110 }}>
+                <InputLabel>Rank</InputLabel>
+                <Select
+                  label="Rank"
+                  value={tierFilter}
+                  onChange={(e) => setTierFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">All ranks</MenuItem>
+                  <MenuItem value="VIP">VIP</MenuItem>
+                  <MenuItem value="TIER_1">Tier 1</MenuItem>
+                  <MenuItem value="TIER_2">Tier 2</MenuItem>
+                  <MenuItem value="TIER_3">Tier 3</MenuItem>
+                  <MenuItem value="TIER_4">Tier 4</MenuItem>
+                  <MenuItem value="TIER_5">Tier 5</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 110 }}>
                 <InputLabel>Sort</InputLabel>
                 <Select
                   label="Sort"
                   value={orderSort}
                   onChange={(e) =>
-                    setOrderSort(e.target.value as "vendor" | "total")
+                    setOrderSort(e.target.value as "tier" | "vendor" | "total")
                   }
                 >
+                  <MenuItem value="tier">Rank</MenuItem>
                   <MenuItem value="vendor">Name</MenuItem>
                   <MenuItem value="total">Total</MenuItem>
                 </Select>
@@ -402,7 +428,13 @@ export default function BillingClient({
                   />
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 600 }} noWrap>
-                      {o.vendorName}
+                      {o.vendorName}{" "}
+                      <Chip
+                        label={TIER_LABELS[o.tier]}
+                        color={o.tier === "VIP" ? "warning" : "default"}
+                        size="small"
+                        sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+                      />
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {o.items.length} items · {inr(orderValue(o))}
@@ -566,7 +598,13 @@ export default function BillingClient({
                 }}
               >
                 <Typography sx={{ fontWeight: 600, flexGrow: 1 }}>
-                  {o.vendorName}
+                  {o.vendorName}{" "}
+                  <Chip
+                    label={TIER_LABELS[o.tier]}
+                    color={o.tier === "VIP" ? "warning" : "default"}
+                    size="small"
+                    sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+                  />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {inr(orderValue(o))}

@@ -16,9 +16,12 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { Tier } from "@/db/schema";
 import {
   ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
+  TIER_LABELS,
+  TIER_RANK,
   formatDateStr,
   inr,
 } from "@/lib/format";
@@ -27,6 +30,7 @@ import { usePollingRefresh } from "@/lib/polling";
 export type AdminOrderRow = {
   id: number;
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
+  tier: Tier;
   windowDate: string;
   placedAt: string;
   vendorName: string;
@@ -85,6 +89,11 @@ export default function OrdersClient({
     r.sort((a, b) => {
       if (sort === "total") return b.total - a.total;
       if (sort === "vendor") return a.vendorName.localeCompare(b.vendorName);
+      if (sort === "tier")
+        return (
+          TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+          b.placedAt.localeCompare(a.placedAt)
+        );
       return b.placedAt.localeCompare(a.placedAt);
     });
     return r;
@@ -164,7 +173,7 @@ export default function OrdersClient({
                 onChange={(e) => setStatus(e.target.value)}
               >
                 <MenuItem value="ALL">All</MenuItem>
-                {(["PLACED", "CONFIRMED", "DELIVERED", "CANCELLED"] as const).map(
+                {(["CONFIRMED", "DELIVERED", "CANCELLED"] as const).map(
                   (s) => (
                     <MenuItem key={s} value={s}>
                       {ORDER_STATUS_LABELS[s]}
@@ -181,6 +190,7 @@ export default function OrdersClient({
                 onChange={(e) => setSort(e.target.value)}
               >
                 <MenuItem value="recent">Most recent</MenuItem>
+                <MenuItem value="tier">Rank (VIP first)</MenuItem>
                 <MenuItem value="total">Highest total</MenuItem>
                 <MenuItem value="vendor">Retailer A–Z</MenuItem>
               </Select>
@@ -217,7 +227,13 @@ export default function OrdersClient({
                 >
                   <Box>
                     <Typography sx={{ fontWeight: 600 }}>
-                      {o.vendorName}
+                      {o.vendorName}{" "}
+                      <Chip
+                        label={TIER_LABELS[o.tier]}
+                        color={o.tier === "VIP" ? "warning" : "default"}
+                        size="small"
+                        sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+                      />
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {formatDateStr(o.windowDate)} · {o.itemCount} items ·{" "}

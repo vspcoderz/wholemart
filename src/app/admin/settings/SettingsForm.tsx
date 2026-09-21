@@ -78,8 +78,8 @@ export default function SettingsForm({
               Ordering window
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Ordering stays open around the clock — these times are kept for
-              reference only. A new order day starts at midnight.
+              Shops can order from 12:00 AM to 10:00 PM. 10 PM – midnight is
+              closed for deliveries, then a new order day starts at midnight.
             </Typography>
             <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
               <TextField
@@ -141,8 +141,9 @@ export default function SettingsForm({
           </Box>
 
           <Alert severity="info">
-            Ordering never closes, so window times don&apos;t block anyone.
-            Orders already placed keep the date they were placed under.
+            The 10 PM – midnight gap is delivery time: vendors can&apos;t order,
+            and a new day starts at midnight. Orders already placed keep the
+            date they were placed under.
           </Alert>
         </CardContent>
       </Card>

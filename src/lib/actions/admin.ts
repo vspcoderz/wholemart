@@ -9,8 +9,10 @@ import {
   orders,
   products,
   settings,
+  tierEnum,
   users,
   type Category,
+  type Tier,
   type Unit,
 } from "@/db/schema";
 import { auth } from "@/auth";
@@ -106,6 +108,7 @@ export type VendorInput = {
   phone?: string;
   address?: string;
   active: boolean;
+  tier: Tier;
 };
 
 export async function saveVendor(input: VendorInput) {
@@ -117,6 +120,9 @@ export async function saveVendor(input: VendorInput) {
   if (!input.id && !input.password) {
     return { ok: false, error: "Password is required for a new vendor." };
   }
+  const tier: Tier = (tierEnum.enumValues as string[]).includes(input.tier)
+    ? input.tier
+    : "TIER_3";
 
   const clash = await db
     .select({ id: users.id })
@@ -135,6 +141,7 @@ export async function saveVendor(input: VendorInput) {
         phone: input.phone?.trim() || null,
         address: input.address?.trim() || null,
         active: input.active,
+        tier,
         ...(input.password
           ? { passwordHash: await bcrypt.hash(input.password, 10) }
           : {}),
@@ -150,6 +157,7 @@ export async function saveVendor(input: VendorInput) {
       phone: input.phone?.trim() || null,
       address: input.address?.trim() || null,
       active: input.active,
+      tier,
     });
   }
   revalidatePath("/admin/settings");
@@ -203,7 +211,7 @@ export async function setOrderStatus(
     .where(eq(orders.id, orderId));
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
-  revalidatePath("/vendor/orders");
+  revalidatePath("/vendor/transactions");
   return { ok: true as const };
 }
 
@@ -239,7 +247,7 @@ export async function adjustOrderItems(
     .where(eq(orders.id, orderId));
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
-  revalidatePath("/vendor/orders");
+  revalidatePath("/vendor/transactions");
   return { ok: true as const };
 }
 

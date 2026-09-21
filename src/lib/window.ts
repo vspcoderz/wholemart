@@ -11,8 +11,8 @@ export type WindowSettings = {
 };
 
 const DEFAULTS: WindowSettings = {
-  windowStartMinutes: 23 * 60, // 11:00 PM
-  windowEndMinutes: 22 * 60, // 10:00 PM next day
+  windowStartMinutes: 0, // 12:00 AM
+  windowEndMinutes: 22 * 60, // 10:00 PM — then blackout for deliveries
   timezone: "Asia/Kolkata",
   language: "mr",
   deliveryNote: null,
@@ -110,16 +110,60 @@ export type WindowState = {
 
 export async function getWindowState(): Promise<WindowState> {
   const cfg = await getSettings();
-  // Ordering never closes: it runs continuously and rolls into a new
-  // windowDate at local midnight ("continues until next day").
-  const { dateStr } = nowInTz(cfg.timezone);
-  const closesAt = wallClockToUtc(addDays(dateStr, 1), 0, cfg.timezone);
+  // Ordering runs 12:00 AM → 10:00 PM; 10 PM → midnight is a delivery
+  // blackout (closed), then a new order day starts at midnight.
+  const { dateStr, minutes } = nowInTz(cfg.timezone);
+  const overnight = cfg.windowStartMinutes > cfg.windowEndMinutes;
 
-  return {
-    open: true,
-    windowDate: dateStr,
-    opensAt: null,
-    closesAt,
-    closingSoon: false,
-  };
+  let open: boolean;
+  let windowDate: string;
+  let closesAt: Date | null = null;
+  let opensAt: Date | null = null;
+
+  if (overnight) {
+    if (minutes >= cfg.windowStartMinutes) {
+      open = true;
+      windowDate = dateStr;
+      closesAt = wallClockToUtc(
+        addDays(dateStr, 1),
+        cfg.windowEndMinutes,
+        cfg.timezone,
+      );
+    } else if (minutes < cfg.windowEndMinutes) {
+      open = true;
+      windowDate = addDays(dateStr, -1);
+      closesAt = wallClockToUtc(dateStr, cfg.windowEndMinutes, cfg.timezone);
+    } else {
+      open = false;
+      windowDate = addDays(dateStr, 1); // next window opens tonight
+      opensAt = wallClockToUtc(
+        dateStr,
+        cfg.windowStartMinutes,
+        cfg.timezone,
+      );
+    }
+  } else {
+    if (minutes >= cfg.windowStartMinutes && minutes < cfg.windowEndMinutes) {
+      open = true;
+      windowDate = dateStr;
+      closesAt = wallClockToUtc(dateStr, cfg.windowEndMinutes, cfg.timezone);
+    } else if (minutes < cfg.windowStartMinutes) {
+      open = false;
+      windowDate = dateStr;
+      opensAt = wallClockToUtc(dateStr, cfg.windowStartMinutes, cfg.timezone);
+    } else {
+      open = false;
+      windowDate = addDays(dateStr, 1);
+      opensAt = wallClockToUtc(
+        addDays(dateStr, 1),
+        cfg.windowStartMinutes,
+        cfg.timezone,
+      );
+    }
+  }
+
+  const closingSoon =
+    open && closesAt !== null && closesAt.getTime() - Date.now() < 60 * 60_000;
+
+  return { open, windowDate, opensAt, closesAt, closingSoon };
 }

@@ -30,6 +30,7 @@ export default async function AdminSettingsPage(props: {
         address: users.address,
         active: users.active,
         balance: users.balance,
+        tier: users.tier,
         orderCount: sql<number>`count(${orders.id})::int`,
       })
       .from(users)
@@ -44,6 +45,7 @@ export default async function AdminSettingsPage(props: {
         users.address,
         users.active,
         users.balance,
+        users.tier,
       )
       .orderBy(asc(users.businessName)),
   ]);

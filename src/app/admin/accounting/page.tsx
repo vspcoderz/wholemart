@@ -13,6 +13,7 @@ export default async function AccountingPage() {
       phone: users.phone,
       active: users.active,
       balance: users.balance,
+      tier: users.tier,
     })
     .from(users)
     .where(eq(users.role, "VENDOR"))
@@ -45,6 +46,7 @@ export default async function AccountingPage() {
         phone: r.phone,
         active: r.active,
         balance: Number(r.balance),
+        tier: r.tier,
       }))}
       recent={recent.map((t) => ({
         id: t.id,

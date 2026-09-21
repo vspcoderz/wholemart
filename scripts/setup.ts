@@ -79,7 +79,7 @@ async function main() {
 
   await sql`CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY DEFAULT 1,
-    window_start_minutes INTEGER NOT NULL DEFAULT 1380,
+    window_start_minutes INTEGER NOT NULL DEFAULT 0,
     window_end_minutes INTEGER NOT NULL DEFAULT 1320,
     timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
     language TEXT NOT NULL DEFAULT 'mr',
@@ -89,6 +89,7 @@ async function main() {
   console.log("Tables created");
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(10,2) NOT NULL DEFAULT '0'`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'TIER_3'`;
 
   await sql`CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,

@@ -12,6 +12,17 @@ import {
 
 export const roleEnum = pgEnum("role", ["ADMIN", "VENDOR"]);
 
+// Retailer ranking: VIP first, Tier 1–5 after. Used for billing priority
+// and sorting across admin lists.
+export const tierEnum = pgEnum("retailer_tier", [
+  "VIP",
+  "TIER_1",
+  "TIER_2",
+  "TIER_3",
+  "TIER_4",
+  "TIER_5",
+]);
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -26,6 +37,7 @@ export const users = pgTable("users", {
   balance: numeric("balance", { precision: 10, scale: 2 })
     .notNull()
     .default("0"),
+  tier: tierEnum("tier").notNull().default("TIER_3"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -152,5 +164,6 @@ export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
+export type Tier = (typeof tierEnum.enumValues)[number];
 export type Category = (typeof categoryEnum.enumValues)[number];
 export type Unit = (typeof unitEnum.enumValues)[number];

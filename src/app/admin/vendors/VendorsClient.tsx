@@ -35,6 +35,8 @@ import {
   type VendorInput,
 } from "@/lib/actions/admin";
 import { useMediaQuery, useTheme } from "@mui/material";
+import type { Tier } from "@/db/schema";
+import { TIERS, TIER_LABELS, TIER_RANK } from "@/lib/format";
 
 type Row = {
   id: number;
@@ -46,6 +48,7 @@ type Row = {
   active: boolean;
   orderCount: number;
   balance: number;
+  tier: Tier;
 };
 
 const EMPTY: VendorInput = {
@@ -56,6 +59,7 @@ const EMPTY: VendorInput = {
   phone: "",
   address: "",
   active: true,
+  tier: "TIER_3",
 };
 
 export default function VendorsClient({ vendors }: { vendors: Row[] }) {
@@ -67,7 +71,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
   const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("ALL");
-  const [sort, setSort] = useState("name");
+  const [sort, setSort] = useState("tier");
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -82,6 +86,11 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
     rows.sort((a, b) => {
       if (sort === "orders") return b.orderCount - a.orderCount;
       if (sort === "balance") return b.balance - a.balance;
+      if (sort === "tier")
+        return (
+          TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+          a.businessName.localeCompare(b.businessName)
+        );
       return a.businessName.localeCompare(b.businessName);
     });
     return rows;
@@ -154,6 +163,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
           <InputLabel>Sort</InputLabel>
           <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
             <MenuItem value="name">Name A–Z</MenuItem>
+            <MenuItem value="tier">Rank (VIP first)</MenuItem>
             <MenuItem value="orders">Most orders</MenuItem>
             <MenuItem value="balance">Highest dues</MenuItem>
           </Select>
@@ -175,6 +185,11 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                     <Typography sx={{ fontWeight: 600 }} noWrap>
                       {v.businessName}
                     </Typography>
+                    <Chip
+                      size="small"
+                      label={TIER_LABELS[v.tier]}
+                      color={v.tier === "VIP" ? "warning" : "default"}
+                    />
                     <Chip
                       size="small"
                       label={v.active ? "Active" : "Disabled"}
@@ -207,6 +222,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                       phone: v.phone ?? "",
                       address: v.address ?? "",
                       active: v.active,
+                      tier: v.tier,
                       password: "",
                     })
                   }
@@ -235,6 +251,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
             <TableHead>
               <TableRow>
                   <TableCell>Business</TableCell>
+                  <TableCell>Rank</TableCell>
                   <TableCell>Contact</TableCell>
                   <TableCell>Orders</TableCell>
                   <TableCell align="right">Owes</TableCell>
@@ -250,6 +267,13 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                     <Typography variant="caption" color="text.secondary">
                       {v.email}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={TIER_LABELS[v.tier]}
+                      color={v.tier === "VIP" ? "warning" : "default"}
+                    />
                   </TableCell>
                   <TableCell>
                     {v.contactPerson ?? "—"}
@@ -288,6 +312,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                           phone: v.phone ?? "",
                           address: v.address ?? "",
                           active: v.active,
+                          tier: v.tier,
                           password: "",
                         })
                       }
@@ -352,6 +377,23 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
             value={editing?.address ?? ""}
             onChange={(e) => setEditing((p) => (p ? { ...p, address: e.target.value } : p))}
           />
+          <TextField
+            select
+            label="Rank"
+            value={editing?.tier ?? "TIER_3"}
+            onChange={(e) =>
+              setEditing((p) =>
+                p ? { ...p, tier: e.target.value as Tier } : p,
+              )
+            }
+            helperText="VIP bills first — rank drives billing order and sorting."
+          >
+            {TIERS.map((t) => (
+              <MenuItem key={t} value={t}>
+                {TIER_LABELS[t]}
+              </MenuItem>
+            ))}
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditing(null)}>Cancel</Button>

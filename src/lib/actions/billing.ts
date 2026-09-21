@@ -158,7 +158,7 @@ export async function finalizeBilling(
   revalidatePath("/admin");
   revalidatePath("/admin/purchase");
   revalidatePath("/admin/accounting");
-  revalidatePath("/vendor/orders");
-  revalidatePath("/vendor/account");
+  revalidatePath("/vendor/transactions");
+  revalidatePath("/vendor/transactions");
   return { ok: true, billed: billable.length };
 }

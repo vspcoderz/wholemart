@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, inr } from "@/lib/format";
-import { formatDateStr } from "@/lib/format";
+import { formatDateStr, formatMinutes } from "@/lib/format";
 
 export type DayRevenue = { windowDate: string; orders: number; revenue: number };
 export type TopProduct = { name: string; qty: number; revenue: number };
@@ -31,6 +31,8 @@ export type RecentOrder = {
 };
 
 export default function DashboardClient({
+  windowStartMinutes,
+  windowEndMinutes,
   vendorCount,
   productCount,
   totalOrders,
@@ -42,6 +44,8 @@ export default function DashboardClient({
   topRetailers,
   recentOrders,
 }: {
+  windowStartMinutes: number;
+  windowEndMinutes: number;
   vendorCount: number;
   productCount: number;
   totalOrders: number;
@@ -79,7 +83,8 @@ export default function DashboardClient({
           Statistics
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Ordering is always open — it rolls into a new day at midnight.
+          Ordering {formatMinutes(windowStartMinutes)} –{" "}
+          {formatMinutes(windowEndMinutes)} · deliveries go out after close.
         </Typography>
       </Box>
 

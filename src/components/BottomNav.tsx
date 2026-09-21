@@ -1,7 +1,7 @@
 "use client";
 
 import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
-import { Home, ShoppingCart, ReceiptLong, Person, AccountBalance } from "@mui/icons-material";
+import { Home, ShoppingCart, ReceiptLong, Person } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang, type StringKey } from "@/lib/i18n";
@@ -10,8 +10,7 @@ import Badge from "@mui/material/Badge";
 const items: { key: StringKey; value: string; icon: typeof Home; cart?: boolean }[] = [
   { key: "order", value: "/vendor", icon: Home },
   { key: "cart", value: "/vendor/cart", icon: ShoppingCart, cart: true },
-  { key: "history", value: "/vendor/orders", icon: ReceiptLong },
-  { key: "account", value: "/vendor/account", icon: AccountBalance },
+  { key: "transactions", value: "/vendor/transactions", icon: ReceiptLong },
   { key: "profile", value: "/vendor/profile", icon: Person },
 ];
 

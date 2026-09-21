@@ -17,7 +17,8 @@ import {
 } from "@mui/material";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { inr } from "@/lib/format";
+import type { Tier } from "@/db/schema";
+import { TIER_LABELS, inr } from "@/lib/format";
 import { recordAdjustment, recordPayment } from "@/lib/actions/accounting";
 
 export type RetailerBalance = {
@@ -26,6 +27,7 @@ export type RetailerBalance = {
   phone: string | null;
   active: boolean;
   balance: number;
+  tier: Tier;
 };
 
 export type LedgerRow = {
@@ -165,7 +167,13 @@ export default function AccountingClient({
           >
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontWeight: 600 }}>
-                {r.businessName}
+                {r.businessName}{" "}
+                <Chip
+                  label={TIER_LABELS[r.tier]}
+                  color={r.tier === "VIP" ? "warning" : "default"}
+                  size="small"
+                  sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+                />
                 {!r.active && (
                   <Chip
                     label="Inactive"
