@@ -66,9 +66,7 @@ export async function recordAdjustment(
   if (!Number.isFinite(amount) || amount === 0) {
     return { ok: false as const, error: "Amount can't be zero." };
   }
-  if (!note.trim()) {
-    return { ok: false as const, error: "A note is required for adjustments." };
-  }
+  const cleanNote = note.trim() || "Manual adjustment";
   const [v] = await db
     .select({ id: users.id })
     .from(users)
@@ -80,7 +78,7 @@ export async function recordAdjustment(
     vendorId,
     type: "ADJUSTMENT",
     amount: amount.toFixed(2),
-    note: note.trim(),
+    note: cleanNote,
   });
   await db
     .update(users)

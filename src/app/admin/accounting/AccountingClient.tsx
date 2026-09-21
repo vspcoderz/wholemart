@@ -59,9 +59,7 @@ function RetailerCard({
   const [payAmt, setPayAmt] = useState(() =>
     r.balance > 0 ? String(Math.round(r.balance)) : "",
   );
-  const [payNote, setPayNote] = useState("");
   const [adjAmt, setAdjAmt] = useState("");
-  const [adjNote, setAdjNote] = useState("");
 
   function savePayment() {
     const value = Number(payAmt);
@@ -70,11 +68,10 @@ function RetailerCard({
       return;
     }
     startTransition(async () => {
-      const res = await recordPayment(r.id, value, payNote);
+      const res = await recordPayment(r.id, value, "");
       if (res.ok) {
         notify(`Payment of ${inr(value)} recorded.`, "success");
         setPayAmt("");
-        setPayNote("");
         router.refresh();
       } else {
         notify(res.error, "error");
@@ -88,16 +85,11 @@ function RetailerCard({
       notify("Enter a non-zero amount (negative reduces dues).", "error");
       return;
     }
-    if (!adjNote.trim()) {
-      notify("Give a reason for the adjustment.", "error");
-      return;
-    }
     startTransition(async () => {
-      const res = await recordAdjustment(r.id, value, adjNote);
+      const res = await recordAdjustment(r.id, value, "");
       if (res.ok) {
         notify("Adjustment recorded.", "success");
         setAdjAmt("");
-        setAdjNote("");
         router.refresh();
       } else {
         notify(res.error, "error");
@@ -171,14 +163,8 @@ function RetailerCard({
               onChange={(e) =>
                 setPayAmt(e.target.value.replace(/[^0-9.]/g, ""))
               }
-              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 90 } } }}
-            />
-            <TextField
-              size="small"
-              label="Note (cash / UPI…)"
-              value={payNote}
-              onChange={(e) => setPayNote(e.target.value)}
-              sx={{ flexGrow: 1, minWidth: 140 }}
+              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 110 } } }}
+              sx={{ flexGrow: 1 }}
             />
             <Button
               size="small"
@@ -206,14 +192,8 @@ function RetailerCard({
               onChange={(e) =>
                 setAdjAmt(e.target.value.replace(/[^0-9.\-]/g, ""))
               }
-              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 90 } } }}
-            />
-            <TextField
-              size="small"
-              label="Reason (required)"
-              value={adjNote}
-              onChange={(e) => setAdjNote(e.target.value)}
-              sx={{ flexGrow: 1, minWidth: 140 }}
+              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 110 } } }}
+              sx={{ flexGrow: 1 }}
             />
             <Button size="small" onClick={saveAdjustment} disabled={pending}>
               Adjust
