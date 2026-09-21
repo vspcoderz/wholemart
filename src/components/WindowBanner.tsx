@@ -2,7 +2,7 @@
 
 import { Box, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { formatMinutes } from "@/lib/format";
+import { formatDateStr, formatMinutes } from "@/lib/format";
 import { useLang } from "@/lib/i18n";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
   startMinutes: number;
   endMinutes: number;
   deliveryNote: string | null;
+  windowDate: string;
 };
 
 function useCountdown(iso: string | null) {
@@ -73,7 +74,8 @@ export default function WindowBanner(props: Props) {
       )}
       {open && (
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", ml: "auto" }}>
-          {formatMinutes(props.endMinutes)} {t("closesAt")}
+          {formatMinutes(props.endMinutes)} {t("closesAt")} · {t("delivery")}{" "}
+          {formatDateStr(props.windowDate)}
         </Typography>
       )}
       {!open && countdown !== null && countdown !== "expired" && (

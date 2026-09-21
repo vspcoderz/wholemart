@@ -62,6 +62,7 @@ export default async function VendorLayout({
               startMinutes={cfg.windowStartMinutes}
               endMinutes={cfg.windowEndMinutes}
               deliveryNote={cfg.deliveryNote}
+              windowDate={win.windowDate}
             />
           </Container>
           <Container maxWidth="sm" sx={{ px: { xs: 1.5, sm: 2 }, pt: 1 }}>
