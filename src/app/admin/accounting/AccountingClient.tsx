@@ -7,12 +7,16 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Snackbar,
   TextField,
   Typography,
 } from "@mui/material";
-import { ExpandMore, ExpandLess } from "@mui/icons-material";
+import { Add, ExpandLess, ExpandMore, Remove } from "@mui/icons-material";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Tier } from "@/db/schema";
@@ -44,52 +48,50 @@ const TXN_LABEL: Record<LedgerRow["type"], string> = {
   ADJUSTMENT: "Adjusted",
 };
 
-function RetailerCard({
-  r,
-  recent,
+type ModalState = { retailer: RetailerBalance; mode: "add" | "remove" };
+
+function MoneyModal({
+  state,
+  onClose,
   notify,
 }: {
-  r: RetailerBalance;
-  recent: LedgerRow[];
+  state: ModalState | null;
+  onClose: () => void;
   notify: (msg: string, severity: "success" | "error") => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
-  const [payAmt, setPayAmt] = useState(() =>
-    r.balance > 0 ? String(Math.round(r.balance)) : "",
-  );
-  const [adjAmt, setAdjAmt] = useState("");
+  const [amount, setAmount] = useState("");
 
-  function savePayment() {
-    const value = Number(payAmt);
-    if (!Number.isFinite(value) || value <= 0) {
-      notify("Enter an amount more than 0.", "error");
-      return;
-    }
-    startTransition(async () => {
-      const res = await recordPayment(r.id, value, "");
-      if (res.ok) {
-        notify(`Payment of ${inr(value)} recorded.`, "success");
-        setPayAmt("");
-        router.refresh();
-      } else {
-        notify(res.error, "error");
-      }
-    });
+  const value = Number(amount);
+  const valid = Number.isFinite(value) && value > 0;
+  const after =
+    state == null || !valid
+      ? null
+      : state.mode === "add"
+        ? state.retailer.balance + value
+        : state.retailer.balance - value;
+
+  function close() {
+    setAmount("");
+    onClose();
   }
 
-  function saveAdjustment() {
-    const value = Number(adjAmt);
-    if (!Number.isFinite(value) || value === 0) {
-      notify("Enter a non-zero amount (negative reduces dues).", "error");
-      return;
-    }
+  function confirm() {
+    if (state == null || !valid) return;
     startTransition(async () => {
-      const res = await recordAdjustment(r.id, value, "");
+      const res =
+        state.mode === "add"
+          ? await recordAdjustment(state.retailer.id, value, "Extra charge")
+          : await recordPayment(state.retailer.id, value, "");
       if (res.ok) {
-        notify("Adjustment recorded.", "success");
-        setAdjAmt("");
+        notify(
+          state.mode === "add"
+            ? `Added ${inr(value)} to dues.`
+            : `Removed ${inr(value)} from dues.`,
+          "success",
+        );
+        close();
         router.refresh();
       } else {
         notify(res.error, "error");
@@ -98,110 +100,50 @@ function RetailerCard({
   }
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 1 }}>
-      <Box
-        onClick={() => setOpen((v) => !v)}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          p: 2,
-          cursor: "pointer",
-        }}
-      >
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 600 }} noWrap>
-            {r.businessName}{" "}
-            <Chip
-              label={TIER_LABELS[r.tier]}
-              color={r.tier === "VIP" ? "warning" : "default"}
-              size="small"
-              sx={{ ml: 0.5, height: 20, fontSize: 11 }}
-            />
-            {!r.active && (
-              <Chip label="Inactive" size="small" sx={{ ml: 0.5 }} />
+    <Dialog open={state !== null} onClose={close} fullWidth maxWidth="xs">
+      <DialogTitle>
+        {state?.mode === "add" ? "Add to dues" : "Remove from dues"}
+        {state ? ` — ${state.retailer.businessName}` : ""}
+      </DialogTitle>
+      <DialogContent sx={{ display: "grid", gap: 2, pt: 1 }}>
+        {state && (
+          <Typography variant="body2" color="text.secondary">
+            Owes now: {inr(state.retailer.balance)}
+            {after !== null && (
+              <>
+                {" → "}
+                <strong>{inr(after)}</strong>
+              </>
             )}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Owes {inr(r.balance)}
-            {r.phone ? ` · ${r.phone}` : ""}
-          </Typography>
-        </Box>
-        <IconButton size="small" aria-label={open ? "Collapse" : "Expand"}>
-          {open ? <ExpandLess /> : <ExpandMore />}
-        </IconButton>
-      </Box>
-
-      {open && (
-        <Box sx={{ px: 2, pb: 2 }}>
-          {recent.map((t) => (
-            <Typography
-              key={t.id}
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block" }}
-            >
-              {TXN_LABEL[t.type]} {t.amount >= 0 ? "+" : "−"}
-              {inr(Math.abs(t.amount))}
-              {t.note ? ` — ${t.note}` : ""}
-            </Typography>
-          ))}
-
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1,
-              mt: 1.5,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-          >
-            <TextField
-              size="small"
-              label="Payment ₹"
-              value={payAmt}
-              onChange={(e) =>
-                setPayAmt(e.target.value.replace(/[^0-9.]/g, ""))
-              }
-              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 110 } } }}
-              sx={{ flexGrow: 1 }}
-            />
-            <Button
-              size="small"
-              variant="contained"
-              onClick={savePayment}
-              disabled={pending || r.balance <= 0}
-            >
-              Got payment
-            </Button>
-          </Box>
-
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1,
-              mt: 1,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-          >
-            <TextField
-              size="small"
-              label="Adjust ₹ (±)"
-              value={adjAmt}
-              onChange={(e) =>
-                setAdjAmt(e.target.value.replace(/[^0-9.\-]/g, ""))
-              }
-              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 110 } } }}
-              sx={{ flexGrow: 1 }}
-            />
-            <Button size="small" onClick={saveAdjustment} disabled={pending}>
-              Adjust
-            </Button>
-          </Box>
-        </Box>
-      )}
-    </Card>
+        )}
+        <TextField
+          label="Amount ₹"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+          autoFocus
+          slotProps={{ htmlInput: { inputMode: "decimal" } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") confirm();
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={close}>Cancel</Button>
+        <Button
+          variant="contained"
+          color={state?.mode === "add" ? "warning" : "success"}
+          onClick={confirm}
+          disabled={pending || !valid}
+        >
+          {pending
+            ? "Saving…"
+            : state?.mode === "add"
+              ? `Add ${valid ? inr(value) : ""}`
+              : `Remove ${valid ? inr(value) : ""}`}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -215,6 +157,8 @@ export default function AccountingClient({
   recent: LedgerRow[];
 }) {
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<{
     msg: string;
     severity: "success" | "error";
@@ -262,8 +206,8 @@ export default function AccountingClient({
             </Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-            Balances grow when billing is finalized and shrink when you record
-            a payment. Tap a retailer to record money or adjust.
+            <strong>Remove</strong> = money received, dues go down.{" "}
+            <strong>Add</strong> = extra charge, dues go up.
           </Typography>
           <TextField
             size="small"
@@ -276,13 +220,105 @@ export default function AccountingClient({
       </Card>
 
       {visible.map((r) => (
-        <RetailerCard
+        <Card
           key={r.id}
-          r={r}
-          recent={byVendor.get(r.id) ?? []}
-          notify={notify}
-        />
+          variant="outlined"
+          sx={{ borderRadius: 1.5, mb: 1 }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              p: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box
+              onClick={() => setExpanded((v) => (v === r.id ? null : r.id))}
+              sx={{
+                flexGrow: 1,
+                minWidth: 0,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600 }} noWrap>
+                  {r.businessName}{" "}
+                  <Chip
+                    label={TIER_LABELS[r.tier]}
+                    color={r.tier === "VIP" ? "warning" : "default"}
+                    size="small"
+                    sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+                  />
+                  {!r.active && (
+                    <Chip label="Inactive" size="small" sx={{ ml: 0.5 }} />
+                  )}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Owes {inr(r.balance)}
+                  {r.phone ? ` · ${r.phone}` : ""}
+                </Typography>
+              </Box>
+              <IconButton size="small">
+                {expanded === r.id ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={<Remove />}
+                onClick={() => setModal({ retailer: r, mode: "remove" })}
+                disabled={r.balance <= 0}
+              >
+                Remove
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                startIcon={<Add />}
+                onClick={() => setModal({ retailer: r, mode: "add" })}
+              >
+                Add
+              </Button>
+            </Box>
+          </Box>
+
+          {expanded === r.id && (
+            <Box sx={{ px: 2, pb: 2 }}>
+              {(byVendor.get(r.id) ?? []).map((t) => (
+                <Typography
+                  key={t.id}
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block" }}
+                >
+                  {TXN_LABEL[t.type]} {t.amount >= 0 ? "+" : "−"}
+                  {inr(Math.abs(t.amount))}
+                  {t.note ? ` — ${t.note}` : ""}
+                </Typography>
+              ))}
+              {(byVendor.get(r.id) ?? []).length === 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  No entries yet.
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Card>
       ))}
+
+      <MoneyModal
+        state={modal}
+        onClose={() => setModal(null)}
+        notify={notify}
+      />
 
       <Snackbar
         open={toast !== null}
