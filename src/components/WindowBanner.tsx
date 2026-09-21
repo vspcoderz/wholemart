@@ -66,12 +66,12 @@ export default function WindowBanner(props: Props) {
       <Typography sx={{ fontWeight: 700, fontSize: 14, color }}>
         {open ? t("orderOpen") : t("orderClosed")}
       </Typography>
-      {countdown && countdown !== "expired" && (
+      {open && props.closingSoon && countdown && countdown !== "expired" && (
         <Typography sx={{ fontWeight: 700, fontSize: 14, color, fontVariantNumeric: "tabular-nums" }}>
           · {countdown}
         </Typography>
       )}
-      {open && countdown !== "expired" && countdown !== null && (
+      {open && (
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", ml: "auto" }}>
           {formatMinutes(props.endMinutes)} {t("closesAt")}
         </Typography>

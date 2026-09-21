@@ -1,15 +1,24 @@
 "use client";
 
 import {
+  Alert,
   Box,
   Button,
   Card,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  Snackbar,
+  TextField,
   Typography,
 } from "@mui/material";
-import { Logout } from "@mui/icons-material";
+import { Logout, LockReset } from "@mui/icons-material";
+import { useState, useTransition } from "react";
 import { useLang, type Lang } from "@/lib/i18n";
+import { changeMyPassword } from "@/lib/actions/account";
 
 export default function ProfileClient({
   businessName,
@@ -27,6 +36,44 @@ export default function ProfileClient({
   signOutAction: () => Promise<void>;
 }) {
   const { t, lang, setLang } = useLang();
+  const [pending, startTransition] = useTransition();
+  const [dialog, setDialog] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [toast, setToast] = useState<{
+    msg: string;
+    severity: "success" | "error";
+  } | null>(null);
+
+  function submitPassword() {
+    if (next !== confirm) {
+      setToast({ msg: t("passwordMismatch"), severity: "error" });
+      return;
+    }
+    if (next.length < 6) {
+      setToast({ msg: t("passwordTooShort"), severity: "error" });
+      return;
+    }
+    startTransition(async () => {
+      const res = await changeMyPassword(current, next);
+      if (res.ok) {
+        setToast({ msg: t("passwordChanged"), severity: "success" });
+        setDialog(false);
+        setCurrent("");
+        setNext("");
+        setConfirm("");
+      } else {
+        setToast({
+          msg:
+            res.error === "WRONG_CURRENT"
+              ? t("wrongPassword")
+              : t("passwordTooShort"),
+          severity: "error",
+        });
+      }
+    });
+  }
 
   const rows: [string, string | null][] = [
     [t("contactPerson"), contactPerson],
@@ -73,6 +120,15 @@ export default function ProfileClient({
             ))}
           </Box>
         </Box>
+        <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}>
+          <Button
+            variant="outlined"
+            startIcon={<LockReset />}
+            onClick={() => setDialog(true)}
+          >
+            {t("changePassword")}
+          </Button>
+        </Box>
         <form action={signOutAction}>
           <Button
             type="submit"
@@ -85,6 +141,50 @@ export default function ProfileClient({
           </Button>
         </form>
       </Card>
+
+      <Dialog open={dialog} onClose={() => setDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle>{t("changePassword")}</DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 2, pt: 1 }}>
+          <TextField
+            label={t("currentPassword")}
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            autoComplete="current-password"
+          />
+          <TextField
+            label={t("newPassword")}
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            helperText={t("passwordTooShort")}
+          />
+          <TextField
+            label={t("confirmPassword")}
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialog(false)}>{t("cancel")}</Button>
+          <Button variant="contained" onClick={submitPassword} disabled={pending}>
+            {pending ? "…" : t("changePassword")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+      >
+        <Alert severity={toast?.severity ?? "success"} onClose={() => setToast(null)}>
+          {toast?.msg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
