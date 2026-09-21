@@ -7,14 +7,12 @@ import {
   Card,
   CardContent,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  IconButton,
   Snackbar,
   TextField,
   Typography,
 } from "@mui/material";
+import { ExpandMore, ExpandLess } from "@mui/icons-material";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Tier } from "@/db/schema";
@@ -46,6 +44,187 @@ const TXN_LABEL: Record<LedgerRow["type"], string> = {
   ADJUSTMENT: "Adjusted",
 };
 
+function RetailerCard({
+  r,
+  recent,
+  notify,
+}: {
+  r: RetailerBalance;
+  recent: LedgerRow[];
+  notify: (msg: string, severity: "success" | "error") => void;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [payAmt, setPayAmt] = useState(() =>
+    r.balance > 0 ? String(Math.round(r.balance)) : "",
+  );
+  const [payNote, setPayNote] = useState("");
+  const [adjAmt, setAdjAmt] = useState("");
+  const [adjNote, setAdjNote] = useState("");
+
+  function savePayment() {
+    const value = Number(payAmt);
+    if (!Number.isFinite(value) || value <= 0) {
+      notify("Enter an amount more than 0.", "error");
+      return;
+    }
+    startTransition(async () => {
+      const res = await recordPayment(r.id, value, payNote);
+      if (res.ok) {
+        notify(`Payment of ${inr(value)} recorded.`, "success");
+        setPayAmt("");
+        setPayNote("");
+        router.refresh();
+      } else {
+        notify(res.error, "error");
+      }
+    });
+  }
+
+  function saveAdjustment() {
+    const value = Number(adjAmt);
+    if (!Number.isFinite(value) || value === 0) {
+      notify("Enter a non-zero amount (negative reduces dues).", "error");
+      return;
+    }
+    if (!adjNote.trim()) {
+      notify("Give a reason for the adjustment.", "error");
+      return;
+    }
+    startTransition(async () => {
+      const res = await recordAdjustment(r.id, value, adjNote);
+      if (res.ok) {
+        notify("Adjustment recorded.", "success");
+        setAdjAmt("");
+        setAdjNote("");
+        router.refresh();
+      } else {
+        notify(res.error, "error");
+      }
+    });
+  }
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 1 }}>
+      <Box
+        onClick={() => setOpen((v) => !v)}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          p: 2,
+          cursor: "pointer",
+        }}
+      >
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 600 }} noWrap>
+            {r.businessName}{" "}
+            <Chip
+              label={TIER_LABELS[r.tier]}
+              color={r.tier === "VIP" ? "warning" : "default"}
+              size="small"
+              sx={{ ml: 0.5, height: 20, fontSize: 11 }}
+            />
+            {!r.active && (
+              <Chip label="Inactive" size="small" sx={{ ml: 0.5 }} />
+            )}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Owes {inr(r.balance)}
+            {r.phone ? ` · ${r.phone}` : ""}
+          </Typography>
+        </Box>
+        <IconButton size="small" aria-label={open ? "Collapse" : "Expand"}>
+          {open ? <ExpandLess /> : <ExpandMore />}
+        </IconButton>
+      </Box>
+
+      {open && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          {recent.map((t) => (
+            <Typography
+              key={t.id}
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block" }}
+            >
+              {TXN_LABEL[t.type]} {t.amount >= 0 ? "+" : "−"}
+              {inr(Math.abs(t.amount))}
+              {t.note ? ` — ${t.note}` : ""}
+            </Typography>
+          ))}
+
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              mt: 1.5,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <TextField
+              size="small"
+              label="Payment ₹"
+              value={payAmt}
+              onChange={(e) =>
+                setPayAmt(e.target.value.replace(/[^0-9.]/g, ""))
+              }
+              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 90 } } }}
+            />
+            <TextField
+              size="small"
+              label="Note (cash / UPI…)"
+              value={payNote}
+              onChange={(e) => setPayNote(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 140 }}
+            />
+            <Button
+              size="small"
+              variant="contained"
+              onClick={savePayment}
+              disabled={pending || r.balance <= 0}
+            >
+              Got payment
+            </Button>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              mt: 1,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <TextField
+              size="small"
+              label="Adjust ₹ (±)"
+              value={adjAmt}
+              onChange={(e) =>
+                setAdjAmt(e.target.value.replace(/[^0-9.\-]/g, ""))
+              }
+              slotProps={{ htmlInput: { inputMode: "decimal", style: { width: 90 } } }}
+            />
+            <TextField
+              size="small"
+              label="Reason (required)"
+              value={adjNote}
+              onChange={(e) => setAdjNote(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 140 }}
+            />
+            <Button size="small" onClick={saveAdjustment} disabled={pending}>
+              Adjust
+            </Button>
+          </Box>
+        </Box>
+      )}
+    </Card>
+  );
+}
+
 export default function AccountingClient({
   outstanding,
   retailers,
@@ -55,17 +234,15 @@ export default function AccountingClient({
   retailers: RetailerBalance[];
   recent: LedgerRow[];
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
-  const [openFor, setOpenFor] = useState<RetailerBalance | null>(null);
-  const [mode, setMode] = useState<"PAYMENT" | "ADJUSTMENT">("PAYMENT");
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
   const [toast, setToast] = useState<{
     msg: string;
     severity: "success" | "error";
   } | null>(null);
+
+  function notify(msg: string, severity: "success" | "error") {
+    setToast({ msg, severity });
+  }
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -86,37 +263,6 @@ export default function AccountingClient({
     return m;
   }, [recent]);
 
-  function openDialog(r: RetailerBalance, m: "PAYMENT" | "ADJUSTMENT") {
-    setOpenFor(r);
-    setMode(m);
-    setAmount(m === "PAYMENT" ? String(Math.max(0, Math.round(r.balance))) : "");
-    setNote("");
-  }
-
-  function submit() {
-    if (!openFor) return;
-    const value = Number(amount);
-    startTransition(async () => {
-      const res =
-        mode === "PAYMENT"
-          ? await recordPayment(openFor.id, value, note)
-          : await recordAdjustment(openFor.id, value, note);
-      if (res.ok) {
-        setToast({
-          msg:
-            mode === "PAYMENT"
-              ? `Payment of ${inr(value)} recorded.`
-              : "Adjustment recorded.",
-          severity: "success",
-        });
-        setOpenFor(null);
-        router.refresh();
-      } else {
-        setToast({ msg: res.error, severity: "error" });
-      }
-    });
-  }
-
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
@@ -136,9 +282,8 @@ export default function AccountingClient({
             </Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-            Balances grow automatically when billing is finalized and shrink
-            when you record a payment. Adjustments handle opening dues and
-            corrections.
+            Balances grow when billing is finalized and shrink when you record
+            a payment. Tap a retailer to record money or adjust.
           </Typography>
           <TextField
             size="small"
@@ -151,107 +296,13 @@ export default function AccountingClient({
       </Card>
 
       {visible.map((r) => (
-        <Card
+        <RetailerCard
           key={r.id}
-          variant="outlined"
-          sx={{ borderRadius: 1.5, mb: 1, p: 2 }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 1,
-              flexWrap: "wrap",
-            }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 600 }}>
-                {r.businessName}{" "}
-                <Chip
-                  label={TIER_LABELS[r.tier]}
-                  color={r.tier === "VIP" ? "warning" : "default"}
-                  size="small"
-                  sx={{ ml: 0.5, height: 20, fontSize: 11 }}
-                />
-                {!r.active && (
-                  <Chip
-                    label="Inactive"
-                    size="small"
-                    sx={{ ml: 1 }}
-                    color="default"
-                  />
-                )}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Owes {inr(r.balance)}
-                {r.phone ? ` · ${r.phone}` : ""}
-              </Typography>
-              {(byVendor.get(r.id) ?? []).map((t) => (
-                <Typography
-                  key={t.id}
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block" }}
-                >
-                  {TXN_LABEL[t.type]} {t.amount >= 0 ? "+" : "−"}
-                  {inr(Math.abs(t.amount))}
-                  {t.note ? ` — ${t.note}` : ""}
-                </Typography>
-              ))}
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => openDialog(r, "PAYMENT")}
-                disabled={r.balance <= 0}
-              >
-                Got payment
-              </Button>
-              <Button size="small" onClick={() => openDialog(r, "ADJUSTMENT")}>
-                Adjust
-              </Button>
-            </Box>
-          </Box>
-        </Card>
+          r={r}
+          recent={byVendor.get(r.id) ?? []}
+          notify={notify}
+        />
       ))}
-
-      <Dialog open={openFor !== null} onClose={() => setOpenFor(null)} fullWidth maxWidth="xs">
-        <DialogTitle>
-          {mode === "PAYMENT" ? "Record payment" : "Balance adjustment"}
-          {openFor ? ` — ${openFor.businessName}` : ""}
-        </DialogTitle>
-        <DialogContent sx={{ display: "grid", gap: 2, pt: 1 }}>
-          {openFor && (
-            <Typography variant="body2" color="text.secondary">
-              Current outstanding: {inr(openFor.balance)}
-              {mode === "ADJUSTMENT" &&
-                " · use a negative amount to reduce what they owe."}
-            </Typography>
-          )}
-          <TextField
-            label={mode === "PAYMENT" ? "Amount received (₹)" : "Amount (₹, signed)"}
-            value={amount}
-            onChange={(e) =>
-              setAmount(e.target.value.replace(/[^0-9.\-]/g, ""))
-            }
-            autoFocus
-            slotProps={{ htmlInput: { inputMode: "decimal" } }}
-          />
-          <TextField
-            label={mode === "PAYMENT" ? "Note (cash / UPI …)" : "Reason (required)"}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenFor(null)}>Cancel</Button>
-          <Button variant="contained" onClick={submit} disabled={pending}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={toast !== null}
