@@ -1,7 +1,7 @@
 import { APP_NAME } from "@/lib/brand";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, users } from "@/db/schema";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
@@ -64,19 +64,37 @@ export async function GET(request: Request) {
     .where(sql`${orders.windowDate} = ${windowDate} and ${orders.status} <> 'CANCELLED'`)
     .groupBy(orders.id, users.businessName, users.address, users.phone, orders.status);
 
-  const vendorItems = await Promise.all(
-    vendorOrders.map(async (o) => ({
-      ...o,
-      items: await db
-        .select({
-          name: orderItems.productName,
-          unit: orderItems.unit,
-          qty: sql<string>`coalesce(${orderItems.confirmedQuantity}, ${orderItems.quantity})`,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, o.orderId)),
-    })),
-  );
+  // One query for every line — grouped in JS (no per-order N+1).
+  const allLines =
+    vendorOrders.length === 0
+      ? []
+      : await db
+          .select({
+            orderId: orderItems.orderId,
+            name: orderItems.productName,
+            unit: orderItems.unit,
+            qty: sql<string>`coalesce(${orderItems.confirmedQuantity}, ${orderItems.quantity})`,
+          })
+          .from(orderItems)
+          .where(
+            inArray(
+              orderItems.orderId,
+              vendorOrders.map((o) => o.orderId),
+            ),
+          );
+  const linesByOrder = new Map<
+    number,
+    { name: string; unit: string; qty: string }[]
+  >();
+  for (const l of allLines) {
+    const list = linesByOrder.get(l.orderId) ?? [];
+    list.push({ name: l.name, unit: l.unit, qty: l.qty });
+    linesByOrder.set(l.orderId, list);
+  }
+  const vendorItems = vendorOrders.map((o) => ({
+    ...o,
+    items: linesByOrder.get(o.orderId) ?? [],
+  }));
 
   const pdf = await PDFDocument.create();
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

@@ -73,12 +73,11 @@ auto page-breaks for 40+ line items, adjusted quantities flagged, COD total.
 
 1. Create a Supabase project -> copy the **connection pooler** string
    (Transaction mode) into `DATABASE_URL`.
-2. Push to GitHub -> import in Vercel -> set env vars: `DATABASE_URL`,
-   `AUTH_SECRET` (generate with `openssl rand -base64 32`) and `SETUP_TOKEN`
-   (any long random string).
-3. `next build` automatically runs `npm run db:setup`, which creates tables,
-   the settings row and the seed accounts/products if they don't exist yet.
-   Alternatively hit `GET /api/setup?token=<SETUP_TOKEN>` after deploy.
+2. Push to GitHub -> import in Vercel -> set env vars: `DATABASE_URL` and
+   `AUTH_SECRET` (generate with `openssl rand -base64 32`).
+3. `next build` automatically runs `npm run db:setup` first, which migrates
+   tables, the settings row and the seed accounts/products if they don't
+   exist yet.
 4. Serve over HTTPS (Vercel default) — required for PWA install.
 
 ## Notes

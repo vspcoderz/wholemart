@@ -10,6 +10,7 @@ import {
   products,
   settings,
   tierEnum,
+  transactions,
   users,
   type Category,
   type Tier,
@@ -200,6 +201,69 @@ export async function deleteVendor(id: number, force = false) {
 
 /* ---------------- Orders ---------------- */
 
+/**
+ * Keep the money ledger truthful after any out-of-billing change:
+ * - CANCELLED → all its charges are reversed (retailer owes 0 for it).
+ * - CONFIRMED/DELIVERED edits → balance follows the new order total.
+ * - PLACED → untouched (billing charges it on finalize).
+ */
+async function syncOrderLedger(orderId: number) {
+  const [o] = await db
+    .select({ vendorId: orders.vendorId, status: orders.status })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!o || o.status === "PLACED") return;
+
+  const items = await db
+    .select({
+      quantity: orderItems.quantity,
+      confirmedQuantity: orderItems.confirmedQuantity,
+      unitPrice: orderItems.unitPrice,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  const target =
+    o.status === "CANCELLED"
+      ? 0
+      : items.reduce(
+          (s, r) =>
+            s +
+            Number(r.confirmedQuantity ?? r.quantity) * Number(r.unitPrice),
+          0,
+        );
+
+  const [c] = await db
+    .select({ total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orderId, orderId),
+        eq(transactions.type, "CHARGE"),
+      ),
+    );
+  const charged = Number(c?.total ?? 0);
+  const delta = target - charged;
+  if (!(delta > 0.004) && !(delta < -0.004)) return;
+
+  const firstCharge = charged === 0 && target > 0;
+  await db.insert(transactions).values({
+    vendorId: o.vendorId,
+    type: firstCharge ? "CHARGE" : "ADJUSTMENT",
+    amount: delta.toFixed(2),
+    orderId,
+    note: firstCharge
+      ? `Manual billing · order #${orderId}`
+      : o.status === "CANCELLED"
+        ? `Cancel order #${orderId} — charges reversed`
+        : `Correction · order #${orderId}`,
+  });
+  await db
+    .update(users)
+    .set({ balance: sql`${users.balance} + ${delta.toFixed(2)}` })
+    .where(eq(users.id, o.vendorId));
+}
+
 export async function setOrderStatus(
   orderId: number,
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED",
@@ -209,8 +273,11 @@ export async function setOrderStatus(
     .update(orders)
     .set({ status, updatedAt: new Date() })
     .where(eq(orders.id, orderId));
+  await syncOrderLedger(orderId);
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/accounting");
+  revalidatePath("/admin");
   revalidatePath("/vendor/transactions");
   return { ok: true as const };
 }
@@ -245,8 +312,11 @@ export async function adjustOrderItems(
     .update(orders)
     .set({ adminNote: adminNote.trim() || null, updatedAt: new Date() })
     .where(eq(orders.id, orderId));
+  await syncOrderLedger(orderId);
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/accounting");
+  revalidatePath("/admin");
   revalidatePath("/vendor/transactions");
   return { ok: true as const };
 }

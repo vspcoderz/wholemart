@@ -20,7 +20,8 @@ export default async function VendorTransactionsPage(props: {
       .select()
       .from(orders)
       .where(eq(orders.vendorId, session.user.id))
-      .orderBy(desc(orders.windowDate)),
+      .orderBy(desc(orders.windowDate))
+      .limit(100),
     db
       .select({ balance: users.balance, businessName: users.businessName })
       .from(users)
