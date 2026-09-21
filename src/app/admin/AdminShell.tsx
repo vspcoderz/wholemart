@@ -18,28 +18,34 @@ import {
 } from "@mui/material";
 import {
   Dashboard,
-  ReceiptLong,
+  History,
   Inventory2,
-  Storefront,
-  Summarize,
+  AccountBalance,
   Settings,
   AgricultureRounded,
   Logout,
   PointOfSale,
+  Print,
+  MoreHoriz,
 } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { APP_NAME } from "@/lib/brand";
 
 const NAV = [
   { label: "Home", href: "/admin", icon: Dashboard },
-  { label: "Orders", href: "/admin/orders", icon: ReceiptLong },
+  { label: "History", href: "/admin/orders", icon: History },
   { label: "Billing", href: "/admin/billing", icon: PointOfSale },
-  { label: "Accounting", href: "/admin/manifest", icon: Summarize },
-  { label: "Products", href: "/admin/products", icon: Inventory2 },
-  { label: "Retailers", href: "/admin/vendors", icon: Storefront },
+  { label: "Purchase", href: "/admin/purchase", icon: Inventory2 },
+  { label: "Printing", href: "/admin/printing", icon: Print },
+  { label: "Accounting", href: "/admin/accounting", icon: AccountBalance },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
+
+// Bottom bar stays thumb-friendly: core tabs + a More sheet for the rest.
+const MOBILE_TABS = NAV.slice(0, 4);
+const MORE_TABS = NAV.slice(4);
 
 const DRAWER_WIDTH = 240;
 
@@ -56,6 +62,24 @@ export default function AdminShell({
   const router = useRouter();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const go = (href: string) => {
+    setMoreOpen(false);
+    router.push(href);
+  };
+
+  const signOutItem = (
+    <ListItemButton
+      sx={{ borderRadius: 2, mx: 1 }}
+      onClick={() => signOut({ redirectTo: "/login" })}
+    >
+      <ListItemIcon sx={{ minWidth: 40 }}>
+        <Logout />
+      </ListItemIcon>
+      <ListItemText primary="Sign out" />
+    </ListItemButton>
+  );
 
   const navList = (
     <List sx={{ pt: 1 }}>
@@ -73,24 +97,7 @@ export default function AdminShell({
         </ListItemButton>
       ))}
       <Divider sx={{ my: 1, mx: 2 }} />
-      <ListItemButton
-        sx={{ borderRadius: 2, mx: 1 }}
-        onClick={() => router.push("/vendor")}
-      >
-        <ListItemIcon sx={{ minWidth: 40 }}>
-          <Storefront />
-        </ListItemIcon>
-        <ListItemText primary="Vendor view" />
-      </ListItemButton>
-      <ListItemButton
-        sx={{ borderRadius: 2, mx: 1 }}
-        onClick={() => signOut({ redirectTo: "/login" })}
-      >
-        <ListItemIcon sx={{ minWidth: 40 }}>
-          <Logout />
-        </ListItemIcon>
-        <ListItemText primary="Sign out" />
-      </ListItemButton>
+      {signOutItem}
     </List>
   );
 
@@ -125,12 +132,37 @@ export default function AdminShell({
     );
   }
 
-  // Mobile: content + fixed bottom navigation
+  // Mobile: content + compact bottom navigation with a More sheet.
+  const moreSelected = MORE_TABS.some((n) => isActive(pathname, n.href));
   return (
     <Box sx={{ minHeight: "100dvh", pb: 9 }}>
       <Box component="main" sx={{ p: 1.5 }}>
         {children}
       </Box>
+      <Drawer
+        anchor="bottom"
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        slotProps={{ paper: { sx: { borderTopLeftRadius: 16, borderTopRightRadius: 16 } } }}
+      >
+        <List sx={{ py: 1 }}>
+          {MORE_TABS.map((n) => (
+            <ListItemButton
+              key={n.href}
+              selected={isActive(pathname, n.href)}
+              onClick={() => go(n.href)}
+              sx={{ minHeight: 48, borderRadius: 2, mx: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                <n.icon />
+              </ListItemIcon>
+              <ListItemText primary={n.label} />
+            </ListItemButton>
+          ))}
+          <Divider sx={{ my: 1, mx: 2 }} />
+          {signOutItem}
+        </List>
+      </Drawer>
       <Paper
         sx={{
           position: "fixed",
@@ -143,11 +175,19 @@ export default function AdminShell({
         elevation={3}
       >
         <BottomNavigation
-          value={NAV.find((n) => isActive(pathname, n.href))?.href ?? "/admin"}
-          onChange={(_, v: string) => router.push(v)}
+          value={
+            moreSelected
+              ? "more"
+              : (MOBILE_TABS.find((n) => isActive(pathname, n.href))?.href ??
+                "/admin")
+          }
+          onChange={(_, v: string) => {
+            if (v === "more") setMoreOpen(true);
+            else router.push(v);
+          }}
           showLabels
         >
-          {NAV.map((n) => (
+          {MOBILE_TABS.map((n) => (
             <BottomNavigationAction
               key={n.href}
               label={n.label}
@@ -156,6 +196,12 @@ export default function AdminShell({
               sx={{ minHeight: 56, minWidth: 0 }}
             />
           ))}
+          <BottomNavigationAction
+            label="More"
+            value="more"
+            icon={<MoreHoriz />}
+            sx={{ minHeight: 56, minWidth: 0 }}
+          />
         </BottomNavigation>
       </Paper>
     </Box>

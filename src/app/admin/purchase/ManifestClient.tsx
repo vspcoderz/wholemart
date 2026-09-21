@@ -52,7 +52,7 @@ export default function ManifestClient({
         }}
       >
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Delivery manifest — {formatDateStr(windowDate)} window
+          Purchase — what to buy for {formatDateStr(windowDate)}
         </Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
           <form>

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, products, users } from "@/db/schema";
 import { getWindowState } from "@/lib/window";
@@ -34,40 +34,52 @@ export default async function BillingPage(props: {
     .where(eq(orders.windowDate, windowDate))
     .orderBy(desc(orders.placedAt));
 
-  const billedOrders: BillingOrder[] = await Promise.all(
-    orderRows.map(async (o) => {
-      const items = await db
-        .select({
-          id: orderItems.id,
-          productId: orderItems.productId,
-          productName: orderItems.productName,
-          category: products.category,
-          unit: orderItems.unit,
-          unitPrice: orderItems.unitPrice,
-          quantity: orderItems.quantity,
-          confirmedQuantity: orderItems.confirmedQuantity,
-        })
-        .from(orderItems)
-        .leftJoin(products, eq(products.id, orderItems.productId))
-        .where(eq(orderItems.orderId, o.id));
-      return {
-        id: o.id,
-        status: o.status,
-        vendorName: o.vendorName,
-        items: items.map((i) => ({
-          id: i.id,
-          productId: i.productId,
-          productName: i.productName,
-          category: i.category,
-          unit: i.unit,
-          unitPrice: Number(i.unitPrice),
-          quantity: Number(i.quantity),
-          confirmedQuantity:
-            i.confirmedQuantity === null ? null : Number(i.confirmedQuantity),
-        })),
-      };
-    }),
-  );
+  // One items query for all orders — grouped in JS (no per-order N+1).
+  const itemRows =
+    orderRows.length === 0
+      ? []
+      : await db
+          .select({
+            orderId: orderItems.orderId,
+            id: orderItems.id,
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            category: products.category,
+            unit: orderItems.unit,
+            unitPrice: orderItems.unitPrice,
+            quantity: orderItems.quantity,
+            confirmedQuantity: orderItems.confirmedQuantity,
+          })
+          .from(orderItems)
+          .leftJoin(products, eq(products.id, orderItems.productId))
+          .where(
+            inArray(
+              orderItems.orderId,
+              orderRows.map((o) => o.id),
+            ),
+          );
+  const itemsByOrder = new Map<number, BillingOrder["items"]>();
+  for (const i of itemRows) {
+    const list = itemsByOrder.get(i.orderId) ?? [];
+    list.push({
+      id: i.id,
+      productId: i.productId,
+      productName: i.productName,
+      category: i.category,
+      unit: i.unit,
+      unitPrice: Number(i.unitPrice),
+      quantity: Number(i.quantity),
+      confirmedQuantity:
+        i.confirmedQuantity === null ? null : Number(i.confirmedQuantity),
+    });
+    itemsByOrder.set(i.orderId, list);
+  }
+  const billedOrders: BillingOrder[] = orderRows.map((o) => ({
+    id: o.id,
+    status: o.status,
+    vendorName: o.vendorName,
+    items: itemsByOrder.get(o.id) ?? [],
+  }));
 
   const live = billedOrders.filter((o) => o.status !== "CANCELLED");
   const orderValue = (o: BillingOrder) =>

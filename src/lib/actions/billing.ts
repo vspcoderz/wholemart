@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { orderItems, orders, type Unit } from "@/db/schema";
+import { orderItems, orders, transactions, users, type Unit } from "@/db/schema";
 import { UNITS } from "@/lib/format";
 import { auth } from "@/auth";
 
@@ -50,7 +50,7 @@ export async function finalizeBilling(
 
   // Only bill orders that belong to this window and aren't cancelled.
   const targets = await db
-    .select({ id: orders.id, status: orders.status })
+    .select({ id: orders.id, status: orders.status, vendorId: orders.vendorId })
     .from(orders)
     .where(
       and(inArray(orders.id, ids), eq(orders.windowDate, windowDate)),
@@ -91,10 +91,74 @@ export async function finalizeBilling(
       .where(inArray(orders.id, placedIds));
   }
 
+  // Ledger: charge each vendor the finalized total of their billed orders and
+  // bump their outstanding balance. Re-billing an order re-charges only the
+  // delta vs its previous CHARGE (avoids double-counting on edits).
+  const vendorOf = new Map(billable.map((o) => [o.id, o.vendorId]));
+  const perOrder = new Map<number, number>();
+  for (const l of lines) {
+    if (!billableIds.has(l.orderId)) continue;
+    perOrder.set(
+      l.orderId,
+      (perOrder.get(l.orderId) ?? 0) + l.unitPrice * l.quantity,
+    );
+  }
+  const prevCharges =
+    perOrder.size === 0
+      ? []
+      : await db
+          .select({
+            orderId: transactions.orderId,
+            total: sql<string>`coalesce(sum(${transactions.amount}), 0)`,
+          })
+          .from(transactions)
+          .where(
+            and(
+              inArray(transactions.orderId, [...perOrder.keys()]),
+              eq(transactions.type, "CHARGE"),
+            ),
+          )
+          .groupBy(transactions.orderId);
+  const prevByOrder = new Map(
+    prevCharges.map((r) => [r.orderId as number, Number(r.total)]),
+  );
+  const perVendor = new Map<number, { delta: number; orders: number[] }>();
+  for (const [orderId, total] of perOrder) {
+    const delta = total - (prevByOrder.get(orderId) ?? 0);
+    if (!(delta > 0.004) && !(delta < -0.004)) continue;
+    const vendorId = vendorOf.get(orderId);
+    if (!vendorId) continue;
+    const row = perVendor.get(vendorId) ?? { delta: 0, orders: [] };
+    row.delta += delta;
+    row.orders.push(orderId);
+    perVendor.set(vendorId, row);
+  }
+  for (const [vendorId, { delta, orders: oids }] of perVendor) {
+    for (const orderId of oids) {
+      const total = perOrder.get(orderId) ?? 0;
+      const prev = prevByOrder.get(orderId) ?? 0;
+      const share = total - prev;
+      if (!(share > 0.004) && !(share < -0.004)) continue;
+      await db.insert(transactions).values({
+        vendorId,
+        type: "CHARGE",
+        amount: share.toFixed(2),
+        orderId,
+        note: `Billing ${windowDate} · order #${orderId}`,
+      });
+    }
+    await db
+      .update(users)
+      .set({ balance: sql`${users.balance} + ${delta.toFixed(2)}` })
+      .where(eq(users.id, vendorId));
+  }
+
   revalidatePath("/admin/billing");
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
-  revalidatePath("/admin/manifest");
+  revalidatePath("/admin/purchase");
+  revalidatePath("/admin/accounting");
   revalidatePath("/vendor/orders");
+  revalidatePath("/vendor/account");
   return { ok: true, billed: billable.length };
 }

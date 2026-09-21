@@ -11,9 +11,17 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, inr } from "@/lib/format";
-import { formatMinutes, formatDateStr } from "@/lib/format";
+import { formatDateStr } from "@/lib/format";
 
-export type DashboardOrder = {
+export type DayRevenue = { windowDate: string; orders: number; revenue: number };
+export type TopProduct = { name: string; qty: number; revenue: number };
+export type TopRetailer = {
+  name: string;
+  orders: number;
+  revenue: number;
+  balance: number;
+};
+export type RecentOrder = {
   id: number;
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
   windowDate: string;
@@ -22,45 +30,58 @@ export type DashboardOrder = {
   itemCount: number;
 };
 
-export type DashboardProps = {
-  windowOpen: boolean;
-  windowDate: string;
-  windowStartMinutes: number;
-  windowEndMinutes: number;
-  timezone: string;
-  deliveryNote: string;
-  vendorCount: number;
-  productCount: number;
-  orders: DashboardOrder[];
-};
-
 export default function DashboardClient({
-  windowOpen,
-  windowDate,
-  windowStartMinutes,
-  windowEndMinutes,
-  timezone,
-  deliveryNote,
   vendorCount,
   productCount,
-  orders,
-}: DashboardProps) {
-  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
-  const pending = orders.filter((o) => o.status === "PLACED").length;
-
+  totalOrders,
+  billedOrders,
+  totalRevenue,
+  outstanding,
+  dayRevenue,
+  topProducts,
+  topRetailers,
+  recentOrders,
+}: {
+  vendorCount: number;
+  productCount: number;
+  totalOrders: number;
+  billedOrders: number;
+  totalRevenue: number;
+  outstanding: number;
+  dayRevenue: DayRevenue[];
+  topProducts: TopProduct[];
+  topRetailers: TopRetailer[];
+  recentOrders: RecentOrder[];
+}) {
   const stats = [
-    { label: "Orders this window", value: String(orders.length) },
-    { label: "Window revenue", value: inr(totalRevenue) },
-    { label: "Awaiting confirmation", value: String(pending) },
+    { label: "Total revenue", value: inr(totalRevenue) },
+    { label: "Outstanding dues", value: inr(outstanding) },
+    { label: "All orders", value: `${totalOrders} (${billedOrders} billed)` },
     { label: "Retailers", value: String(vendorCount) },
     { label: "Active products", value: String(productCount) },
   ];
 
+  const maxDay = Math.max(1, ...dayRevenue.map((d) => d.revenue));
+
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
-        Dashboard
-      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+          flexWrap: "wrap",
+          gap: 1,
+        }}
+      >
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          Statistics
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Ordering is always open — it rolls into a new day at midnight.
+        </Typography>
+      </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {stats.map((s) => (
@@ -79,55 +100,145 @@ export default function DashboardClient({
         ))}
       </Grid>
 
-      <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 3 }}>
-        <CardContent>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              mb: 1,
-              flexWrap: "wrap",
-            }}
-          >
-            <Chip
-              label={windowOpen ? "Ordering OPEN" : "Ordering CLOSED"}
-              color={windowOpen ? "success" : "default"}
-              size="small"
-            />
-            <Typography color="text.secondary">
-              Window: {formatMinutes(windowStartMinutes)} →{" "}
-              {formatMinutes(windowEndMinutes)} next day ({timezone})
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {windowOpen
-              ? "Vendors can place and edit orders. Everything is delivered together after the window closes."
-              : "Vendors are waiting for the next window. Deliveries from the last window are in progress."}
-          </Typography>
-        </CardContent>
-      </Card>
+      <Grid container spacing={2} sx={{ mb: 3, alignItems: "stretch" }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
+            <CardContent>
+              <Typography gutterBottom sx={{ fontWeight: 700 }}>
+                Revenue — last 7 days
+              </Typography>
+              {dayRevenue.length === 0 ? (
+                <Typography color="text.secondary">No sales yet.</Typography>
+              ) : (
+                [...dayRevenue].reverse().map((d) => (
+                  <Box key={d.windowDate} sx={{ mb: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Typography variant="body2">
+                        {formatDateStr(d.windowDate)} · {d.orders} orders
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {inr(d.revenue)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        bgcolor: "action.hover",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          height: "100%",
+                          width: `${Math.round((d.revenue / maxDay) * 100)}%`,
+                          bgcolor: "primary.main",
+                          borderRadius: 4,
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
+            <CardContent>
+              <Typography gutterBottom sx={{ fontWeight: 700 }}>
+                Top products (by revenue)
+              </Typography>
+              {topProducts.length === 0 ? (
+                <Typography color="text.secondary">No sales yet.</Typography>
+              ) : (
+                topProducts.map((p, i) => (
+                  <Box
+                    key={p.name}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      py: 0.75,
+                      borderBottom: i < topProducts.length - 1 ? 1 : 0,
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {i + 1}. {p.name}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ ml: 1 }}
+                      >
+                        {p.qty} sold
+                      </Typography>
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {inr(p.revenue)}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+              <Typography gutterBottom sx={{ fontWeight: 700, mt: 2 }}>
+                Top retailers (by purchases)
+              </Typography>
+              {topRetailers.length === 0 ? (
+                <Typography color="text.secondary">No sales yet.</Typography>
+              ) : (
+                topRetailers.map((r) => (
+                  <Box
+                    key={r.name}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      py: 0.5,
+                    }}
+                  >
+                    <Typography variant="body2">
+                      {r.name}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ ml: 1 }}
+                      >
+                        {r.orders} orders
+                        {r.balance > 0.004 && ` · owes ${inr(r.balance)}`}
+                      </Typography>
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {inr(r.revenue)}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Orders for {formatDateStr(windowDate)} window
+          Recent orders
         </Typography>
-        <Link href="/admin/manifest">
-          <Button size="small">Delivery manifest</Button>
+        <Link href="/admin/orders">
+          <Button size="small">Full history</Button>
         </Link>
       </Box>
 
-      {orders.length === 0 ? (
+      {recentOrders.length === 0 ? (
         <Card
           variant="outlined"
           sx={{ p: 4, textAlign: "center", borderRadius: 1.5 }}
         >
-          <Typography color="text.secondary">
-            No orders in this window yet.
-          </Typography>
+          <Typography color="text.secondary">No orders yet.</Typography>
         </Card>
       ) : (
-        orders.map((o) => (
+        recentOrders.map((o) => (
           <Link
             key={o.id}
             href={`/admin/orders/${o.id}`}
@@ -146,7 +257,8 @@ export default function DashboardClient({
                     {o.vendorName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {o.itemCount} items · {inr(o.total)}
+                    {formatDateStr(o.windowDate)} · {o.itemCount} items ·{" "}
+                    {inr(o.total)}
                   </Typography>
                 </Box>
                 <Chip

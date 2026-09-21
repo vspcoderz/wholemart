@@ -21,6 +21,11 @@ export const users = pgTable("users", {
   contactPerson: text("contact_person"),
   phone: text("phone"),
   address: text("address"),
+  // Outstanding amount the retailer owes (positive = owes us).
+  // Bumped by billing CHARGE rows, reduced by PAYMENT rows.
+  balance: numeric("balance", { precision: 10, scale: 2 })
+    .notNull()
+    .default("0"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -118,10 +123,34 @@ export const settings = pgTable("settings", {
   deliveryNote: text("delivery_note"),
 });
 
+export const transactionTypeEnum = pgEnum("transaction_type", [
+  "CHARGE", // billing finalized — increases what the retailer owes
+  "PAYMENT", // money received from the retailer — reduces what they owe
+  "ADJUSTMENT", // manual correction, signed amount
+]);
+
+// Money ledger per retailer. `users.balance` caches the running total.
+export const transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  vendorId: integer("vendor_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: transactionTypeEnum("type").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  orderId: integer("order_id").references(() => orders.id, {
+    onDelete: "set null",
+  }),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type Transaction = typeof transactions.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
 export type Category = (typeof categoryEnum.enumValues)[number];
 export type Unit = (typeof unitEnum.enumValues)[number];

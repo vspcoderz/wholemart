@@ -110,58 +110,16 @@ export type WindowState = {
 
 export async function getWindowState(): Promise<WindowState> {
   const cfg = await getSettings();
-  const { dateStr, minutes } = nowInTz(cfg.timezone);
-  const overnight = cfg.windowStartMinutes > cfg.windowEndMinutes;
+  // Ordering never closes: it runs continuously and rolls into a new
+  // windowDate at local midnight ("continues until next day").
+  const { dateStr } = nowInTz(cfg.timezone);
+  const closesAt = wallClockToUtc(addDays(dateStr, 1), 0, cfg.timezone);
 
-  let open: boolean;
-  let windowDate: string;
-  let closesAt: Date | null = null;
-  let opensAt: Date | null = null;
-
-  if (overnight) {
-    if (minutes >= cfg.windowStartMinutes) {
-      open = true;
-      windowDate = dateStr;
-      closesAt = wallClockToUtc(
-        addDays(dateStr, 1),
-        cfg.windowEndMinutes,
-        cfg.timezone,
-      );
-    } else if (minutes < cfg.windowEndMinutes) {
-      open = true;
-      windowDate = addDays(dateStr, -1);
-      closesAt = wallClockToUtc(dateStr, cfg.windowEndMinutes, cfg.timezone);
-    } else {
-      open = false;
-      windowDate = addDays(dateStr, 1); // next window opens tonight
-      opensAt = wallClockToUtc(
-        dateStr,
-        cfg.windowStartMinutes,
-        cfg.timezone,
-      );
-    }
-  } else {
-    if (minutes >= cfg.windowStartMinutes && minutes < cfg.windowEndMinutes) {
-      open = true;
-      windowDate = dateStr;
-      closesAt = wallClockToUtc(dateStr, cfg.windowEndMinutes, cfg.timezone);
-    } else if (minutes < cfg.windowStartMinutes) {
-      open = false;
-      windowDate = dateStr;
-      opensAt = wallClockToUtc(dateStr, cfg.windowStartMinutes, cfg.timezone);
-    } else {
-      open = false;
-      windowDate = addDays(dateStr, 1);
-      opensAt = wallClockToUtc(
-        addDays(dateStr, 1),
-        cfg.windowStartMinutes,
-        cfg.timezone,
-      );
-    }
-  }
-
-  const closingSoon =
-    open && closesAt !== null && closesAt.getTime() - Date.now() < 60 * 60_000;
-
-  return { open, windowDate, opensAt, closesAt, closingSoon };
+  return {
+    open: true,
+    windowDate: dateStr,
+    opensAt: null,
+    closesAt,
+    closingSoon: false,
+  };
 }

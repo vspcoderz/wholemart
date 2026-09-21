@@ -62,7 +62,7 @@ export async function saveProduct(input: ProductInput) {
   } else {
     await db.insert(products).values(values);
   }
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/settings");
   revalidatePath("/vendor");
   return { ok: true as const };
 }
@@ -70,7 +70,7 @@ export async function saveProduct(input: ProductInput) {
 export async function toggleProduct(id: number, active: boolean) {
   await requireAdmin();
   await db.update(products).set({ active }).where(eq(products.id, id));
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/settings");
   revalidatePath("/vendor");
   return { ok: true as const };
 }
@@ -90,7 +90,7 @@ export async function deleteProduct(id: number) {
           : "Delete failed.",
     };
   }
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/settings");
   revalidatePath("/vendor");
   return { ok: true as const };
 }
@@ -152,14 +152,14 @@ export async function saveVendor(input: VendorInput) {
       active: input.active,
     });
   }
-  revalidatePath("/admin/vendors");
+  revalidatePath("/admin/settings");
   return { ok: true as const };
 }
 
 export async function toggleVendor(id: number, active: boolean) {
   await requireAdmin();
   await db.update(users).set({ active }).where(eq(users.id, id));
-  revalidatePath("/admin/vendors");
+  revalidatePath("/admin/settings");
   return { ok: true as const };
 }
 
@@ -185,7 +185,7 @@ export async function deleteVendor(id: number, force = false) {
     return { ok: false as const, error: `HAS_ORDERS:${oc.n}` };
   }
   await db.delete(users).where(eq(users.id, id));
-  revalidatePath("/admin/vendors");
+  revalidatePath("/admin/settings");
   revalidatePath("/admin");
   return { ok: true as const };
 }

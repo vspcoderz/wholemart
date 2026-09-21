@@ -33,7 +33,6 @@ function hhmmToMinutes(v: string) {
 
 export default function SettingsForm({
   initial,
-  label,
 }: {
   initial: {
     windowStartMinutes: number;
@@ -42,7 +41,6 @@ export default function SettingsForm({
     language: "mr" | "en";
     deliveryNote: string;
   };
-  label: { start: string; end: string };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -73,10 +71,6 @@ export default function SettingsForm({
 
   return (
     <Box sx={{ maxWidth: 640 }}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
-        Settings
-      </Typography>
-
       <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
         <CardContent sx={{ display: "grid", gap: 3 }}>
           <Box>
@@ -84,8 +78,8 @@ export default function SettingsForm({
               Ordering window
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Currently: opens {label.start}, closes {label.end} the next day.
-              All orders in the window are delivered together after it closes.
+              Ordering stays open around the clock — these times are kept for
+              reference only. A new order day starts at midnight.
             </Typography>
             <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
               <TextField
@@ -147,8 +141,8 @@ export default function SettingsForm({
           </Box>
 
           <Alert severity="info">
-            Changing the window affects everyone immediately. Orders already
-            placed keep the window date they were placed under.
+            Ordering never closes, so window times don&apos;t block anyone.
+            Orders already placed keep the date they were placed under.
           </Alert>
         </CardContent>
       </Card>

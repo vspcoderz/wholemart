@@ -88,6 +88,18 @@ async function main() {
 
   console.log("Tables created");
 
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(10,2) NOT NULL DEFAULT '0'`;
+
+  await sql`CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    vendor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`;
+
   await sql`INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING`;
 
   const adminPass = await bcrypt.hash("admin123", 10);

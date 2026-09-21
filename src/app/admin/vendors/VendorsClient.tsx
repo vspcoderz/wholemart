@@ -45,6 +45,7 @@ type Row = {
   address: string | null;
   active: boolean;
   orderCount: number;
+  balance: number;
 };
 
 const EMPTY: VendorInput = {
@@ -80,6 +81,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
     );
     rows.sort((a, b) => {
       if (sort === "orders") return b.orderCount - a.orderCount;
+      if (sort === "balance") return b.balance - a.balance;
       return a.businessName.localeCompare(b.businessName);
     });
     return rows;
@@ -153,6 +155,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
           <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
             <MenuItem value="name">Name A–Z</MenuItem>
             <MenuItem value="orders">Most orders</MenuItem>
+            <MenuItem value="balance">Highest dues</MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -189,6 +192,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {v.contactPerson ?? "—"} · {v.phone ?? "no phone"} · {v.orderCount} orders
+                    {v.balance > 0.004 && ` · owes ₹${v.balance.toLocaleString("en-IN")}`}
                   </Typography>
                 </Box>
                 <IconButton
@@ -230,10 +234,11 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Business</TableCell>
-                <TableCell>Contact</TableCell>
-                <TableCell>Orders</TableCell>
-                <TableCell>Status</TableCell>
+                  <TableCell>Business</TableCell>
+                  <TableCell>Contact</TableCell>
+                  <TableCell>Orders</TableCell>
+                  <TableCell align="right">Owes</TableCell>
+                  <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -254,6 +259,9 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                     </Typography>
                   </TableCell>
                   <TableCell>{v.orderCount}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: v.balance > 0.004 ? 700 : 400 }}>
+                    {v.balance > 0.004 ? `₹${v.balance.toLocaleString("en-IN")}` : "—"}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
