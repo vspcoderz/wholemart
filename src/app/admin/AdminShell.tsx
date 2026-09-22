@@ -9,15 +9,18 @@ import {
   DotsHorizontal,
   HomeLine,
   LogOut01,
+  Moon01,
   Printer,
   ReceiptCheck,
   Settings01,
   ShoppingBag02,
+  Sun,
 } from "@untitledui/icons";
 import { NavList } from "@/components/application/app-navigation/base-components/nav-list";
 import { NavItemBase } from "@/components/application/app-navigation/base-components/nav-item";
 import type { NavItemDividerType, NavItemType } from "@/components/application/app-navigation/config";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { useColorMode } from "@/components/AppProviders";
 import { APP_NAME } from "@/lib/brand";
 import { cx } from "@/utils/cx";
 
@@ -45,12 +48,31 @@ function isActive(pathname: string, href: string) {
 
 function BrandMark() {
   return (
-    <div className="flex items-center gap-2.5 px-1 py-1">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-brand-solid text-white shadow-xs">
+    <div className="flex items-center gap-2.5">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-solid text-white shadow-xs">
         <ShoppingBag02 className="size-5" />
       </span>
-      <span className="text-md font-semibold text-primary">{APP_NAME}</span>
+      <span className="truncate text-md font-semibold text-primary">{APP_NAME}</span>
     </div>
+  );
+}
+
+function ThemeToggle({ className }: { className?: string }) {
+  const { mode, toggle } = useColorMode();
+  const dark = mode === "dark";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-pressed={dark}
+      className={cx(
+        "flex cursor-pointer items-center justify-center rounded-lg p-2 text-fg-quaternary outline-focus-ring transition-colors hover:bg-primary_hover hover:text-fg-secondary_hover focus-visible:outline-2",
+        className,
+      )}
+    >
+      {dark ? <Sun className="size-5" /> : <Moon01 className="size-5" />}
+    </button>
   );
 }
 
@@ -85,24 +107,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     router.push(href);
   };
 
-  const sidebarBody = (
-    <div className="flex h-full flex-col">
-      <div className="px-4 pt-4 lg:px-5 lg:pt-5">
-        <BrandMark />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <NavList activeUrl={activeUrl} items={NAV} />
-      </div>
-      <div className="mt-auto px-4 py-4 lg:px-5 lg:py-5">
-        <ul className="flex flex-col">
-          <li className="py-px">
-            <SignOutItem />
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-
   // Bottom bar stays thumb-friendly: core tabs + a More sheet for the rest.
   const mobileTabs = [
     { label: "Statistics", href: "/admin", Icon: HomeLine },
@@ -111,27 +115,48 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     { label: "Printing", href: "/admin/printing", Icon: Printer },
   ];
   const currentMobile =
-    mobileTabs.find((t) => isActive(pathname, t.href))?.href ?? (pathname.startsWith("/admin/orders") ? "/admin/orders" : null);
+    mobileTabs.find((t) => isActive(pathname, t.href))?.href ??
+    (pathname.startsWith("/admin/orders") ? "/admin/orders" : null);
   const moreSelected =
-    !currentMobile && ["/admin/purchase", "/admin/accounting", "/admin/settings"].some((h) => isActive(pathname, h));
+    !currentMobile &&
+    ["/admin/purchase", "/admin/accounting", "/admin/settings"].some((h) =>
+      isActive(pathname, h),
+    );
 
   return (
-    <>
+    <div className="min-h-dvh bg-secondary lg:pl-70">
       {/* Desktop sidebar */}
-      <div className="max-lg:hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-70">
-        <aside className="flex h-full w-full flex-col border-r border-secondary bg-primary">{sidebarBody}</aside>
-      </div>
-      <div className="invisible hidden lg:sticky lg:top-0 lg:bottom-0 lg:left-0 lg:block lg:pl-70" />
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-70 flex-col border-r border-secondary bg-primary max-lg:hidden lg:flex">
+        <div className="px-4 pt-4 lg:px-5 lg:pt-5">
+          <BrandMark />
+        </div>
+        <nav aria-label="Admin" className="min-h-0 flex-1 overflow-y-auto">
+          <NavList activeUrl={activeUrl} items={NAV} />
+        </nav>
+        <div className="mt-auto px-4 py-4 lg:px-5 lg:py-5">
+          <ul className="flex flex-col">
+            <li className="py-px">
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <SignOutItem />
+                </div>
+                <ThemeToggle />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-secondary bg-primary px-4 lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-secondary bg-primary px-4 lg:hidden">
         <BrandMark />
+        <ThemeToggle />
       </header>
 
       {/* Content */}
-      <div className="flex min-h-dvh flex-col lg:min-h-screen">
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:py-6 lg:pb-8">{children}</main>
-      </div>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:py-6 lg:pb-8">
+        {children}
+      </main>
 
       {/* Mobile bottom navigation */}
       <nav
@@ -175,10 +200,12 @@ function ShellInner({ children }: { children: React.ReactNode }) {
       <ModalOverlay isOpen={moreOpen} onOpenChange={setMoreOpen} isDismissable>
         <Modal className="sm:max-w-md">
           <Dialog className="p-2">
-            <div onClick={(e) => {
-              const a = (e.target as HTMLElement).closest("a");
-              if (a) setMoreOpen(false);
-            }}>
+            <div
+              onClick={(e) => {
+                const a = (e.target as HTMLElement).closest("a");
+                if (a) setMoreOpen(false);
+              }}
+            >
               <NavList activeUrl={activeUrl} items={NAV} className="pt-2" />
             </div>
             <div className="px-4 py-3">
@@ -187,7 +214,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           </Dialog>
         </Modal>
       </ModalOverlay>
-    </>
+    </div>
   );
 }
 

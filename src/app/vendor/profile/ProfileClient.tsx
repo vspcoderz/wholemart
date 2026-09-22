@@ -5,7 +5,9 @@ import { Lock01, LogOut01 } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
+import { Toggle } from "@/components/base/toggle/toggle";
 import { Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { useColorMode } from "@/components/AppProviders";
 import { useLang, type Lang } from "@/lib/i18n";
 import { changeMyPassword } from "@/lib/actions/account";
 import { cx } from "@/utils/cx";
@@ -26,6 +28,7 @@ export default function ProfileClient({
   signOutAction: () => Promise<void>;
 }) {
   const { t, lang, setLang } = useLang();
+  const { mode, toggle } = useColorMode();
   const [pending, startTransition] = useTransition();
   const [dialog, setDialog] = useState(false);
   const [current, setCurrent] = useState("");
@@ -103,6 +106,15 @@ export default function ProfileClient({
               </button>
             ))}
           </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-tertiary">Dark mode</p>
+          <Toggle
+            size="sm"
+            aria-label="Dark mode"
+            isSelected={mode === "dark"}
+            onChange={toggle}
+          />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" color="secondary" iconLeading={Lock01} onClick={() => setDialog(true)}>
