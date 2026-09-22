@@ -220,20 +220,33 @@ export default function AccountingClient({
     return rows;
   }, [retailers, query, tiers, dueFilter, sort]);
 
-  // Workbench selection follows the URL (?retailer=), defaulting to top dues.
-  // If the filter hid the URL retailer, fall back visually AND sync the URL
-  // back so selection, ledger, and link never silently diverge.
-  const selected =
-    visible.find((r) => r.id === activeRetailerId) ?? visible[0] ?? null;
+  // Selection is instant (local state) — the URL follows in the background
+  // so taps never wait on a server roundtrip. The URL stays source of truth
+  // for deep-links and refresh; the override drops once the server catches up.
+  const urlSelected = visible.find((r) => r.id === activeRetailerId) ?? null;
+  const [localId, setLocalId] = useState<number | null>(null);
+  const localSelected =
+    localId !== null ? (visible.find((r) => r.id === localId) ?? null) : null;
+  const selected = localSelected ?? urlSelected ?? visible[0] ?? null;
+  /* eslint-disable react-hooks/set-state-in-effect -- drop override once URL catches up, by design */
   useEffect(() => {
-    if (selected && selected.id !== activeRetailerId) {
-      router.replace(`${pathname}?retailer=${selected.id}`, { scroll: false });
+    if (localId !== null && activeRetailerId === localId) setLocalId(null);
+  }, [activeRetailerId, localId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // No override and the URL points nowhere visible (fresh visit / filter hid
+  // it) → default to top dues.
+  useEffect(() => {
+    if (localId === null && urlSelected === null && visible.length > 0) {
+      router.replace(`${pathname}?retailer=${visible[0].id}`, { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.id]);
+  }, [urlSelected, visible]);
 
   function select(id: number) {
-    router.replace(`${pathname}?retailer=${id}`, { scroll: false });
+    setLocalId(id);
+    if (id !== activeRetailerId) {
+      router.replace(`${pathname}?retailer=${id}`, { scroll: false });
+    }
   }
 
   const ledger = useMemo(() => {
@@ -436,6 +449,11 @@ export default function AccountingClient({
               <div className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
                 <h3 className="text-md font-semibold text-primary">
                   Ledger {fullLedger ? `(${ledger.length})` : "(recent)"}
+                  {!fullLedger && localSelected !== null && (
+                    <span className="ml-2 align-middle text-xs font-normal text-quaternary">
+                      loading full history…
+                    </span>
+                  )}
                 </h3>
                 {ledger.length === 0 ? (
                   <p className="mt-2 text-sm text-tertiary">No entries yet.</p>
