@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   BankNote02,
@@ -39,7 +40,16 @@ const NAV: (NavItemType | NavItemDividerType)[] = [
   { label: "Purchase", href: "/admin/purchase", icon: ShoppingBag02 },
   { label: "Printing", href: "/admin/printing", icon: Printer },
   { label: "Accounting", href: "/admin/accounting", icon: BankNote02 },
-  { label: "Settings", href: "/admin/settings", icon: Settings01 },
+  {
+    label: "Settings",
+    href: "/admin/settings",
+    icon: Settings01,
+    items: [
+      { label: "General", href: "/admin/settings" },
+      { label: "Products", href: "/admin/settings?tab=products" },
+      { label: "Retailers", href: "/admin/settings?tab=retailers" },
+    ],
+  },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -96,16 +106,10 @@ function SignOutItem({ onDone }: { onDone?: () => void }) {
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const tab = searchParams.get("tab");
   const activeUrl = pathname + (tab ? `?tab=${tab}` : "");
-
-  const go = (href: string) => {
-    setMoreOpen(false);
-    router.push(href);
-  };
 
   // Bottom bar stays thumb-friendly: core tabs + a More sheet for the rest.
   const mobileTabs = [
@@ -167,10 +171,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           {mobileTabs.map((t) => {
             const active = currentMobile === t.href;
             return (
-              <button
+              <Link
                 key={t.href}
-                type="button"
-                onClick={() => go(t.href)}
+                href={t.href}
+                prefetch
                 aria-current={active ? "page" : undefined}
                 className={cx(
                   "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-semibold outline-focus-ring transition-colors focus-visible:outline-2",
@@ -179,7 +183,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
               >
                 <t.Icon className="size-5" />
                 {t.label === "Statistics" ? "Home" : t.label}
-              </button>
+              </Link>
             );
           })}
           <button
