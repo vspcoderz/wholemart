@@ -17,6 +17,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("light");
 
   // Restore saved preference (or OS setting) after mount to avoid SSR mismatch.
+  // Runs once; the no-op setState when nothing is stored bails out for free.
+  /* eslint-disable react-hooks/set-state-in-effect -- mount-once theme restore */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -28,6 +30,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     } catch {
       // private mode etc. — stay light
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {
