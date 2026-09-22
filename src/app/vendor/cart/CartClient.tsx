@@ -9,6 +9,8 @@ import { UNIT_LABELS, UNIT_STEPS } from "@/lib/format";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang } from "@/lib/i18n";
 import { saveOrder } from "@/lib/actions/orders";
+import { PAYMENT_METHODS } from "@/lib/format";
+import { Select } from "@/components/base/select/select";
 import { cx } from "@/utils/cx";
 
 type CartProduct = { id: number; name: string; nameMr: string | null; emoji: string | null; unit: Unit };
@@ -24,6 +26,7 @@ export default function CartClient({
   const { items, setQty, clear: cartClear } = useCart();
   const { t, lang } = useLang();
   const [pending, startTransition] = useTransition();
+  const [method, setMethod] = useState<string>("Cash");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => {
@@ -48,7 +51,10 @@ export default function CartClient({
 
   function submit() {
     startTransition(async () => {
-      const res = await saveOrder(items.filter((i) => i.quantity > 0));
+      const res = await saveOrder(
+        items.filter((i) => i.quantity > 0),
+        method,
+      );
       if (res.ok) {
         cartClear();
         setToast({ msg: t("orderSaved"), ok: true });
@@ -121,7 +127,18 @@ export default function CartClient({
       </p>
 
       {windowOpen ? (
-        <div className="flex gap-2">
+        <>
+          <Select
+            size="md"
+            label={t("paymentMethod")}
+            items={PAYMENT_METHODS.map((m) => ({ id: m, label: m }))}
+            selectedKey={method}
+            onSelectionChange={(k) => setMethod(String(k))}
+            className="mb-2"
+          >
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+          </Select>
+          <div className="flex gap-2">
           <Button
             size="lg"
             color="primary"
@@ -141,7 +158,8 @@ export default function CartClient({
           >
             {t("clear")}
           </Button>
-        </div>
+          </div>
+        </>
       ) : (
         <p className="rounded-lg bg-warning-primary p-3 text-sm font-medium text-warning-primary ring-1 ring-utility-yellow-200 ring-inset">
           {t("windowClosed")}

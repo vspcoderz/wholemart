@@ -77,7 +77,7 @@ export default function DashboardClient({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (
           <Link
             key={s.label}

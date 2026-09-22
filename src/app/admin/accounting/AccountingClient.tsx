@@ -13,7 +13,7 @@ import { Select } from "@/components/base/select/select";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import type { Tier } from "@/db/schema";
-import { TIER_LABELS, TIERS, inr } from "@/lib/format";
+import { TIER_LABELS, TIERS, inr, PAYMENT_METHODS } from "@/lib/format";
 import { recordAdjustment, recordPayment } from "@/lib/actions/accounting";
 import { cx } from "@/utils/cx";
 
@@ -33,6 +33,7 @@ export type LedgerRow = {
   amount: number;
   note: string | null;
   orderId: number | null;
+  paymentMethod: string | null;
   createdAt: string;
 };
 
@@ -75,6 +76,7 @@ function MoneyModal({
   const [pending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState<string>("Cash");
 
   const value = Number(amount);
   const valid = Number.isFinite(value) && value > 0;
@@ -87,7 +89,12 @@ function MoneyModal({
       const res =
         mode === "add"
           ? await recordAdjustment(retailer.id, value, note || "Extra charge")
-          : await recordPayment(retailer.id, value, note || "Payment received");
+          : await recordPayment(
+              retailer.id,
+              value,
+              note || "Payment received",
+              mode === "remove" ? method : undefined,
+            );
       if (res.ok) {
         notify(
           mode === "add" ? `Added ${inr(value)} to dues.` : `Recorded ${inr(value)} received.`,
@@ -126,6 +133,17 @@ function MoneyModal({
               onChange={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
               autoFocus
             />
+            {mode === "remove" && (
+              <Select
+                size="md"
+                label="Payment method"
+                items={PAYMENT_METHODS.map((m) => ({ id: m, label: m }))}
+                selectedKey={method}
+                onSelectionChange={(k) => setMethod(String(k))}
+              >
+                {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+              </Select>
+            )}
             <TextArea
               aria-label="Note"
               placeholder={mode === "add" ? "Reason (e.g. crate deposit)" : "Note (e.g. cash, UPI ref)"}
@@ -188,7 +206,7 @@ export default function AccountingClient({
       (r) =>
         (tiers.length === 0 || tiers.includes(r.tier)) &&
         (dueFilter === "all" ||
-          (dueFilter === "owing" ? r.balance > 0 : r.balance <= 0)) &&
+          (dueFilter === "owing" ? r.balance > 0.004 : r.balance <= 0.004)) &&
         (q === "" ||
           r.businessName.toLowerCase().includes(q) ||
           (r.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, ""))),
@@ -203,8 +221,16 @@ export default function AccountingClient({
   }, [retailers, query, tiers, dueFilter, sort]);
 
   // Workbench selection follows the URL (?retailer=), defaulting to top dues.
+  // If the filter hid the URL retailer, fall back visually AND sync the URL
+  // back so selection, ledger, and link never silently diverge.
   const selected =
     visible.find((r) => r.id === activeRetailerId) ?? visible[0] ?? null;
+  useEffect(() => {
+    if (selected && selected.id !== activeRetailerId) {
+      router.replace(`${pathname}?retailer=${selected.id}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
 
   function select(id: number) {
     router.replace(`${pathname}?retailer=${id}`, { scroll: false });
@@ -427,6 +453,7 @@ export default function AccountingClient({
                             </Badge>
                             <span className="truncate text-sm text-secondary">
                               {t.note ?? ""}
+                              {t.paymentMethod ? ` · ${t.paymentMethod}` : ""}
                             </span>
                           </p>
                           <p className="mt-0.5 text-xs text-tertiary">

@@ -37,6 +37,7 @@ export default async function AccountingPage(props: {
       amount: transactions.amount,
       note: transactions.note,
       orderId: transactions.orderId,
+      paymentMethod: transactions.paymentMethod,
       createdAt: transactions.createdAt,
     })
     .from(transactions)
@@ -55,6 +56,7 @@ export default async function AccountingPage(props: {
             amount: transactions.amount,
             note: transactions.note,
             orderId: transactions.orderId,
+            paymentMethod: transactions.paymentMethod,
             createdAt: transactions.createdAt,
           })
           .from(transactions)
@@ -71,6 +73,7 @@ export default async function AccountingPage(props: {
     amount: Number(t.amount),
     note: t.note,
     orderId: t.orderId,
+    paymentMethod: t.paymentMethod,
     createdAt:
       t.createdAt instanceof Date ? t.createdAt.toISOString() : String(t.createdAt),
   });

@@ -80,10 +80,12 @@ export default function OrderEditor({
 
   function setStatus(next: (typeof STATUS_OPTIONS)[number]) {
     startTransition(async () => {
-      const res = await setOrderStatus(orderId, next);
-      if (res.ok) {
+      try {
+        await setOrderStatus(orderId, next);
         setToast({ msg: `Order marked ${next.toLowerCase()}.`, ok: true });
         router.refresh();
+      } catch {
+        setToast({ msg: "Could not change status.", ok: false });
       }
     });
   }
@@ -113,8 +115,10 @@ export default function OrderEditor({
             </thead>
             <tbody>
               {items.map((i) => {
-                const q = Number(edits[i.id] ?? i.quantity);
-                const changed = q !== i.quantity;
+                const raw = edits[i.id];
+                const q = raw === undefined || raw === "" ? (i.confirmedQuantity ?? i.quantity) : Number(raw);
+                const displayQ = Number.isFinite(q) ? q : 0;
+                const changed = displayQ !== (i.confirmedQuantity ?? i.quantity);
                 return (
                   <tr key={i.id} className="border-t border-secondary">
                     <td className="px-2 py-2">
@@ -144,7 +148,7 @@ export default function OrderEditor({
                       />
                     </td>
                     <td className="px-2 py-2 text-right font-semibold text-primary">
-                      {inr(q * i.unitPrice)}
+                      {inr(displayQ * i.unitPrice)}
                     </td>
                   </tr>
                 );

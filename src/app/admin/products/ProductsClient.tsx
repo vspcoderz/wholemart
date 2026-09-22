@@ -8,7 +8,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
 import { Toggle } from "@/components/base/toggle/toggle";
-import { Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Tab, TabList, Tabs } from "@/components/application/tabs/tabs";
 import type { Category, Unit } from "@/db/schema";
@@ -250,7 +250,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
                       {inr(p.pricePerUnit)}
                     </td>
                     <td className="px-4 py-3">
-                      <button type="button" onClick={() => flipActive(p)} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
+                      <button type="button" onClick={() => flipActive(p)} aria-label={`${p.active ? "Hide" : "Show"} ${p.name}`} aria-pressed={p.active} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
                         <Badge size="sm" type="pill-color" color={p.active ? "success" : "gray"}>
                           {p.active ? "Active" : "Hidden"}
                         </Badge>
@@ -292,7 +292,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
       {/* Add / edit */}
       <ModalOverlay isOpen={editing !== null} onOpenChange={(o) => !o && setEditing(null)} isDismissable>
         <Modal className="sm:max-w-lg">
-          <div className="max-h-[inherit] overflow-y-auto p-6">
+          <Dialog className="p-6">
             <h2 className="text-md font-semibold text-primary">
               {editing?.id ? "Edit product" : "Add product"}
             </h2>
@@ -376,14 +376,14 @@ export default function ProductsClient({ products }: { products: Row[] }) {
                 Save
               </Button>
             </div>
-          </div>
+          </Dialog>
         </Modal>
       </ModalOverlay>
 
       {/* Delete confirm */}
       <ModalOverlay isOpen={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)} isDismissable>
         <Modal className="sm:max-w-md">
-          <div className="p-6">
+          <Dialog className="p-6">
             <h2 className="text-md font-semibold text-primary">Delete “{deleting?.name}”?</h2>
             <p className="mt-1 text-sm text-tertiary">Past orders keep their records.</p>
             <div className="mt-4 flex justify-end gap-2">
@@ -399,7 +399,7 @@ export default function ProductsClient({ products }: { products: Row[] }) {
                 Delete
               </Button>
             </div>
-          </div>
+          </Dialog>
         </Modal>
       </ModalOverlay>
 

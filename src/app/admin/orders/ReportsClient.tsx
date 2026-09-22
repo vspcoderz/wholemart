@@ -86,7 +86,6 @@ function selectionToIds(sel: Selection): number[] {
 }
 
 export default function ReportsClient({
-  initialTab,
   from,
   to,
   retailerIds,
@@ -98,7 +97,6 @@ export default function ReportsClient({
   truncated,
   txnsTruncated,
 }: {
-  initialTab: "orders" | "outstanding";
   from: string | null;
   to: string | null;
   retailerIds: number[];
@@ -120,7 +118,7 @@ export default function ReportsClient({
   const [sort, setSort] = useState("recent");
   const [txnType, setTxnType] = useState("ALL");
 
-  const tab = searchParams.get("tab") === "outstanding" ? "outstanding" : initialTab;
+  const tab = searchParams.get("tab") === "outstanding" ? "outstanding" : "orders";
 
   const setParams = (mutate: (p: URLSearchParams) => void) => {
     const p = new URLSearchParams(searchParams.toString());
@@ -190,8 +188,14 @@ export default function ReportsClient({
     );
   }, [txns, query, txnType]);
 
+  // Bulk print skips CANCELLED — no invoices for dead orders.
   const bulkHref =
-    visible.length > 0 ? `/api/invoices/bulk?ids=${visible.map((o) => o.id).join(",")}` : null;
+    visible.filter((o) => o.status !== "CANCELLED").length > 0
+      ? `/api/invoices/bulk?ids=${visible
+          .filter((o) => o.status !== "CANCELLED")
+          .map((o) => o.id)
+          .join(",")}`
+      : null;
 
   const rangeLabel =
     from || to

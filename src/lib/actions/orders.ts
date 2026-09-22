@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, products } from "@/db/schema";
+import { PAYMENT_METHODS } from "@/lib/format";
 import { auth } from "@/auth";
 import { getWindowState } from "@/lib/window";
 
@@ -17,7 +18,10 @@ export type PlaceOrderResult =
  * Create or replace the vendor's order for the current window.
  * Prices are always taken from the DB, never trusted from the client.
  */
-export async function saveOrder(items: CartItemInput[]): Promise<PlaceOrderResult> {
+export async function saveOrder(
+  items: CartItemInput[],
+  paymentMethod?: string,
+): Promise<PlaceOrderResult> {
   const session = await auth();
   if (!session || session.user.role !== "VENDOR") {
     return { ok: false, error: "Not signed in as a vendor." };
@@ -27,6 +31,11 @@ export async function saveOrder(items: CartItemInput[]): Promise<PlaceOrderResul
   if (!win.open) {
     return { ok: false, error: "The ordering window is closed." };
   }
+
+  const method =
+    paymentMethod && (PAYMENT_METHODS as readonly string[]).includes(paymentMethod)
+      ? paymentMethod
+      : null;
 
   const clean = items.filter((i) => Number(i.quantity) > 0);
   if (clean.length === 0) {
@@ -62,7 +71,7 @@ export async function saveOrder(items: CartItemInput[]): Promise<PlaceOrderResul
     order = (
       await db
         .insert(orders)
-        .values({ vendorId, windowDate: win.windowDate })
+        .values({ vendorId, windowDate: win.windowDate, paymentMethod: method })
         .returning()
     )[0];
   } else if (order.status !== "PLACED") {
@@ -70,6 +79,11 @@ export async function saveOrder(items: CartItemInput[]): Promise<PlaceOrderResul
       ok: false,
       error: `This order was already ${order.status.toLowerCase()} by the admin and can't be edited.`,
     };
+  } else if (method !== order.paymentMethod) {
+    await db
+      .update(orders)
+      .set({ paymentMethod: method })
+      .where(eq(orders.id, order.id));
   }
 
   await db.delete(orderItems).where(eq(orderItems.orderId, order.id));

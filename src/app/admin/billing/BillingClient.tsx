@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageChatCircle, Printer } from "@untitledui/icons";
@@ -45,6 +45,7 @@ export type BillingOrder = {
   vendorName: string;
   phone: string | null;
   tier: Tier;
+  paymentMethod: string | null;
   items: BillingItem[];
 };
 
@@ -122,17 +123,24 @@ export default function BillingClient({
   );
 
   // Keep selection + draft edits in sync when fresh orders arrive (polling /
-  // post-finalize refresh). Finalized orders drop out of the selection so
-  // they never linger checked — the "already billed" confusion is gone.
+  // post-finalize refresh / date navigation). Finalized orders drop out of
+  // the selection so they never linger checked; newly seen PLACED orders
+  // (e.g. after Prev/Next day) are preselected for the daily workflow.
   // Sync-on-prop-change by design: fires only when server data refreshes.
+  const seenRef = useRef<Set<number>>(new Set());
   /* eslint-disable react-hooks/set-state-in-effect -- sync-on-prop-change by design */
   useEffect(() => {
+    const freshPlaced = orders
+      .filter((o) => o.status === "PLACED" && !seenRef.current.has(o.id))
+      .map((o) => o.id);
+    seenRef.current = new Set(orders.map((o) => o.id));
     setSelected((prev) => {
       const next = new Set<number>();
       for (const id of prev) {
         const o = orders.find((x) => x.id === id);
         if (o && o.status === "PLACED") next.add(id);
       }
+      for (const id of freshPlaced) next.add(id);
       return next;
     });
     setEdits((prev) => {
@@ -205,7 +213,7 @@ export default function BillingClient({
   }, [live, showBilled, vendorQuery, tierFilter, orderSort, edits]);
 
   const selectedOrders = useMemo(
-    () => orders.filter((o) => selected.has(o.id) && o.status !== "CANCELLED"),
+    () => orders.filter((o) => selected.has(o.id) && o.status === "PLACED"),
     [orders, selected],
   );
 
@@ -263,6 +271,7 @@ export default function BillingClient({
   }
 
   function setProductRate(key: string, rate: string) {
+    if (rate.trim() === "") return; // clearing the input must not zero lines
     const v = Number(rate.replace(/[^0-9.]/g, ""));
     if (!Number.isFinite(v) || v < 0) return;
     setEdits((p) => {
@@ -487,8 +496,8 @@ export default function BillingClient({
             </div>
           </div>
           <div className="mb-2 flex items-center gap-2">
-            <Button size="sm" color="link-gray" onClick={() => setSelected(new Set(visibleOrders.map((o) => o.id)))}>
-              Select all
+            <Button size="sm" color="link-gray" onClick={() => setSelected(new Set(visibleOrders.filter((o) => o.status === "PLACED").map((o) => o.id)))}>
+              Select pending
             </Button>
             <Button size="sm" color="link-gray" onClick={() => setSelected(new Set())}>
               None
@@ -533,7 +542,7 @@ export default function BillingClient({
                         on ? "bg-brand-primary ring-brand" : "bg-primary ring-secondary hover:bg-primary_hover",
                       )}
                     >
-                      <Checkbox size="sm" aria-label={`Select ${o.vendorName}`} isSelected={on} onChange={() => toggle(o.id)} />
+                      <Checkbox size="sm" aria-label={`${o.vendorName} selected`} isSelected={on} isReadOnly />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-sm font-semibold text-primary">{o.vendorName}</span>
@@ -667,6 +676,9 @@ export default function BillingClient({
               <summary className="flex cursor-pointer items-center gap-2 p-4 outline-focus-ring focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-primary">
                   {o.vendorName}
+                  {o.paymentMethod ? (
+                    <span className="ml-1.5 font-normal text-quaternary">· {o.paymentMethod}</span>
+                  ) : null}
                 </span>
                 <Badge size="sm" type="pill-color" color={o.tier === "VIP" ? "warning" : "gray"}>
                   {TIER_LABELS[o.tier]}

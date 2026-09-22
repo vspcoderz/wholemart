@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
 import RegisterSW from "@/components/RegisterSW";
@@ -36,15 +37,15 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <head>
-        {/* Apply saved theme before first paint — no flash, no reset. */}
-        <script
+      <body>
+        {/* Apply saved theme before paint — no flash, no reset. */}
+        <Script
+          id="vf-theme"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('vf-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark-mode');document.documentElement.style.colorScheme='dark';}}catch(e){}})()`,
           }}
         />
-      </head>
-      <body>
         <AppProviders>{children}</AppProviders>
         <RegisterSW />
       </body>

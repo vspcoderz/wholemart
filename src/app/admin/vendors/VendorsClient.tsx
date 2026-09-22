@@ -8,7 +8,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { TextArea } from "@/components/base/textarea/textarea";
 import { Select } from "@/components/base/select/select";
-import { Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import {
   saveVendor,
@@ -254,7 +254,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                       {v.balance > 0.004 ? inr(v.balance) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <button type="button" onClick={() => flipActive(v)} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
+                      <button type="button" onClick={() => flipActive(v)} aria-label={`${v.active ? "Disable" : "Enable"} ${v.businessName}`} aria-pressed={v.active} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
                         <Badge size="sm" type="pill-color" color={v.active ? "success" : "gray"}>
                           {v.active ? "Active" : "Disabled"}
                         </Badge>
@@ -284,7 +284,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                       <Badge size="sm" type="pill-color" color={v.tier === "VIP" ? "warning" : "gray"}>
                         {TIER_LABELS[v.tier]}
                       </Badge>
-                      <button type="button" onClick={() => flipActive(v)} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
+                      <button type="button" onClick={() => flipActive(v)} aria-label={`${v.active ? "Disable" : "Enable"} ${v.businessName}`} aria-pressed={v.active} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
                         <Badge size="sm" type="pill-color" color={v.active ? "success" : "gray"}>
                           {v.active ? "Active" : "Disabled"}
                         </Badge>
@@ -307,7 +307,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
       {/* Add / edit */}
       <ModalOverlay isOpen={editing !== null} onOpenChange={(o) => !o && setEditing(null)} isDismissable>
         <Modal className="sm:max-w-lg">
-          <div className="max-h-[inherit] overflow-y-auto p-6">
+          <Dialog className="p-6">
             <h2 className="text-md font-semibold text-primary">
               {editing?.id ? "Edit retailer" : "Add retailer"}
             </h2>
@@ -378,14 +378,14 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                 Save
               </Button>
             </div>
-          </div>
+          </Dialog>
         </Modal>
       </ModalOverlay>
 
       {/* Delete confirm */}
       <ModalOverlay isOpen={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)} isDismissable>
         <Modal className="sm:max-w-md">
-          <div className="p-6">
+          <Dialog className="p-6">
             <h2 className="text-md font-semibold text-primary">
               Delete “{deleting?.businessName}”?
             </h2>
@@ -407,7 +407,7 @@ export default function VendorsClient({ vendors }: { vendors: Row[] }) {
                 Delete
               </Button>
             </div>
-          </div>
+          </Dialog>
         </Modal>
       </ModalOverlay>
 

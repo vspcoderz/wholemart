@@ -97,6 +97,8 @@ export const orders = pgTable(
     windowDate: text("window_date").notNull(), // YYYY-MM-DD
     status: orderStatusEnum("status").notNull().default("PLACED"),
     adminNote: text("admin_note"),
+    /** How the vendor intends to pay (chosen at checkout: Cash, UPI, …). */
+    paymentMethod: text("payment_method"),
     placedAt: timestamp("placed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -153,6 +155,8 @@ export const transactions = pgTable("transactions", {
     onDelete: "set null",
   }),
   note: text("note"),
+  /** PAYMENT only: Cash, UPI, PhonePe, … (how the money arrived). */
+  paymentMethod: text("payment_method"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

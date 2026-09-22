@@ -78,8 +78,7 @@ export const TIER_LABELS: Record<Tier, string> = {
   TIER_5: "Tier 5",
 };
 
-/** Lower = more important. VIP always first. */
-export const TIER_RANK: Record<Tier, number> = {
+/** Lower = more important. VIP always first. */export const TIER_RANK: Record<Tier, number> = {
   VIP: 0,
   TIER_1: 1,
   TIER_2: 2,
@@ -102,8 +101,7 @@ export const ORDER_STATUS_COLORS = {
   CANCELLED: "default",
 } as const;
 
-export function formatDateStr(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00Z`);
+export function formatDateStr(dateStr: string): string {  const d = new Date(`${dateStr}T12:00:00Z`);
   return d.toLocaleDateString("en-IN", {
     weekday: "short",
     day: "numeric",
@@ -119,3 +117,16 @@ export function formatMinutes(total: number): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
+
+/** How money changes hands — chosen at vendor checkout and on collection. */
+export const PAYMENT_METHODS = [
+  "Cash",
+  "UPI",
+  "PhonePe",
+  "Google Pay",
+  "Paytm",
+  "Bank Transfer",
+  "Other",
+] as const;
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

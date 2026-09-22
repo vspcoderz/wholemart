@@ -15,6 +15,7 @@ export type VendorOrderRow = {
   windowDate: string;
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
   adminNote: string | null;
+  paymentMethod: string | null;
   itemCount: number;
   total: number;
   currentWindow: boolean;

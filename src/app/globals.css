@@ -45,9 +45,9 @@ html {
 }
 
 /* Eyestrain pass: soften the light surfaces one step down from pure white.
-   Dark theme (.dark-mode) is untouched. Unlayered :root wins over the
-   layered @theme tokens. */
-:root {
+   Scoped to :not(.dark-mode) so the layered dark tokens keep winning.
+   Unlayered :root wins over the layered @theme tokens. */
+:root:not(.dark-mode) {
     --color-bg-primary: #f3f4f1;
     --color-bg-secondary: #e8eae5;
     --color-bg-tertiary: #dde0da;

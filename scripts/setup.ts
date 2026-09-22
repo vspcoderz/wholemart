@@ -61,6 +61,7 @@ async function main() {
     window_date TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'PLACED',
     admin_note TEXT,
+    payment_method TEXT,
     placed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(vendor_id, window_date)
@@ -90,6 +91,8 @@ async function main() {
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(10,2) NOT NULL DEFAULT '0'`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'TIER_3'`;
+  await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT`;
+  await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_method TEXT`;
 
   await sql`CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,
@@ -98,6 +101,7 @@ async function main() {
     amount NUMERIC(10,2) NOT NULL,
     order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
     note TEXT,
+    payment_method TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`;
 

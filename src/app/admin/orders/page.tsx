@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, transactions, users } from "@/db/schema";
@@ -35,7 +36,6 @@ export default async function AdminReportsPage(props: {
   const tiers = (sp.tiers ?? "")
     .split(",")
     .filter((t): t is Tier => (TIERS as string[]).includes(t));
-  const tab = sp.tab === "outstanding" ? "outstanding" : "orders";
 
   // Retailers for the tag filter (small table).
   const retailers = await db
@@ -82,7 +82,8 @@ export default async function AdminReportsPage(props: {
   // Outstanding / money trail: same date-range + retailer filters apply here too.
   const txnConds = [];
   if (from) txnConds.push(gte(transactions.createdAt, new Date(`${from}T00:00:00Z`)));
-  if (to) txnConds.push(lt(transactions.createdAt, new Date(`${to}T00:00:00Z`)));
+  // Inclusive end day (match the orders filter): compare against next midnight.
+  if (to) txnConds.push(lt(transactions.createdAt, new Date(new Date(`${to}T00:00:00Z`).getTime() + 86400000)));
   if (retailerIds.length > 0) txnConds.push(inArray(transactions.vendorId, retailerIds));
   if (tiers.length > 0) txnConds.push(inArray(users.tier, tiers));
 
@@ -103,8 +104,8 @@ export default async function AdminReportsPage(props: {
     .limit(TXN_LIMIT);
 
   return (
+    <Suspense>
     <ReportsClient
-      initialTab={tab}
       from={from}
       to={to}
       retailerIds={retailerIds}
@@ -135,5 +136,6 @@ export default async function AdminReportsPage(props: {
         vendorName: t.vendorName,
       }))}
     />
+    </Suspense>
   );
 }

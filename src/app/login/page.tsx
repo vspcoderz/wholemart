@@ -5,7 +5,7 @@ export const metadata = { title: "Sign in" };
 
 export default function LoginPage() {
   return (
-    <div className="grid min-h-dvh place-items-center bg-secondary p-4">
+    <div className="flex min-h-dvh w-full items-center justify-center bg-secondary p-4">
       <Suspense>
         <LoginForm />
       </Suspense>

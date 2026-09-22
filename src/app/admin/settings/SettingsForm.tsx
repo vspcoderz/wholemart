@@ -18,8 +18,10 @@ const TIMEZONES = [
 function minutesToHHMM(total: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
-function hhmmToMinutes(v: string) {
+function hhmmToMinutes(v: string): number | null {
+  if (!/^\d{1,2}:\d{2}$/.test(v)) return null;
   const [h, m] = v.split(":").map(Number);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
   return h * 60 + m;
 }
 
@@ -44,11 +46,17 @@ export default function SettingsForm({
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   async function save() {
+    const startMin = hhmmToMinutes(start);
+    const endMin = hhmmToMinutes(end);
+    if (startMin === null || endMin === null) {
+      setToast({ msg: "Opening and closing times must be valid (HH:MM).", ok: false });
+      return;
+    }
     setPending(true);
     try {
       const res = await updateSettings({
-        windowStartMinutes: hhmmToMinutes(start),
-        windowEndMinutes: hhmmToMinutes(end),
+        windowStartMinutes: startMin,
+        windowEndMinutes: endMin,
         timezone,
         language,
         deliveryNote,

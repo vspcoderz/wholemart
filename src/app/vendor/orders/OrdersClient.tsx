@@ -21,6 +21,7 @@ type OrderRow = {
   windowDate: string;
   status: "PLACED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
   adminNote: string | null;
+  paymentMethod: string | null;
   itemCount: number;
   total: number;
   currentWindow: boolean;
@@ -95,6 +96,7 @@ export default function OrdersClient({
                 </p>
                 <p className="mt-0.5 text-sm text-tertiary">
                   {o.itemCount} {t("items")} · {t("payOnDelivery")}
+                  {o.paymentMethod ? ` · ${o.paymentMethod}` : ""}
                   {(o.status === "CONFIRMED" || o.status === "DELIVERED") &&
                     ` · ${inr(o.total)}`}
                 </p>

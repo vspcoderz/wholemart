@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { parseDate } from "@internationalized/date";
 import type { DateValue, Selection } from "react-aria-components";
@@ -65,14 +65,18 @@ export default function PrintingClient({
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
 
-  // Stay in sync when fresh rows arrive: prune gone ids, select new arrivals.
+  // Stay in sync when fresh rows arrive: prune gone ids, select only
+  // genuinely new arrivals — never resurrect user deselections on poll.
+  const seenRef = useRef<Set<number>>(new Set());
   /* eslint-disable react-hooks/set-state-in-effect -- sync-on-prop-change by design */
   useEffect(() => {
+    const ids = rows.map((r) => r.id);
+    const fresh = ids.filter((id) => !seenRef.current.has(id));
+    seenRef.current = new Set(ids);
     setSelected((prev) => {
-      const ids = new Set(rows.map((r) => r.id));
       const next = new Set<number>();
-      for (const id of prev) if (ids.has(id)) next.add(id);
-      for (const id of ids) next.add(id);
+      for (const id of prev) if (seenRef.current.has(id)) next.add(id);
+      for (const id of fresh) next.add(id);
       return next;
     });
   }, [rows]);
@@ -318,7 +322,7 @@ export default function PrintingClient({
                     aria-pressed={on}
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left outline-focus-ring focus-visible:outline-2"
                   >
-                    <Checkbox size="sm" aria-label={`Select order ${o.id}`} isSelected={on} onChange={() => toggle(o.id)} />
+                    <Checkbox size="sm" aria-label={`Order ${o.id} selected`} isSelected={on} isReadOnly />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-primary">
                         {o.vendorName}

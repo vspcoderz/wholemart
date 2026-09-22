@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, products, users } from "@/db/schema";
@@ -9,10 +10,7 @@ import VendorsClient from "../vendors/VendorsClient";
 
 export const metadata = { title: "Settings" };
 
-export default async function AdminSettingsPage(props: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
-  const { tab } = await props.searchParams;
+export default async function AdminSettingsPage() {
   const cfg = await getSettings();
 
   const [productRows, vendorRows] = await Promise.all([
@@ -51,8 +49,8 @@ export default async function AdminSettingsPage(props: {
   ]);
 
   return (
+    <Suspense>
     <SettingsTabs
-      initialTab={tab === "products" || tab === "retailers" ? tab : "general"}
       general={
         <SettingsForm
           initial={{
@@ -85,5 +83,6 @@ export default async function AdminSettingsPage(props: {
         />
       }
     />
+    </Suspense>
   );
 }

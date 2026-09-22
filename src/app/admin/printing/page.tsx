@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, users } from "@/db/schema";
@@ -62,6 +63,7 @@ export default async function PrintingPage(props: {
     .limit(LIMIT);
 
   return (
+    <Suspense>
     <PrintingClient
       from={from}
       to={to}
@@ -78,5 +80,6 @@ export default async function PrintingPage(props: {
         itemCount: o.itemCount,
       }))}
     />
+    </Suspense>
   );
 }

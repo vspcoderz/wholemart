@@ -40,6 +40,7 @@ export default async function VendorTransactionsPage(props: {
         windowDate: o.windowDate,
         status: o.status,
         adminNote: o.adminNote,
+        paymentMethod: o.paymentMethod,
         itemCount: rows.length,
         total: rows.reduce(
           (s, r) =>
