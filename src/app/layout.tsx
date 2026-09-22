@@ -35,7 +35,15 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* Apply saved theme before first paint — no flash, no reset. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('vf-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark-mode');document.documentElement.style.colorScheme='dark';}}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>
         <AppProviders>{children}</AppProviders>
         <RegisterSW />

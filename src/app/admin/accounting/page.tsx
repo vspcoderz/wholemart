@@ -5,7 +5,15 @@ import AccountingClient from "./AccountingClient";
 
 export const metadata = { title: "Accounting" };
 
-export default async function AccountingPage() {
+const LEDGER_LIMIT = 100;
+
+export default async function AccountingPage(props: {
+  searchParams: Promise<{ retailer?: string }>;
+}) {
+  const { retailer: retailerParam } = await props.searchParams;
+  const activeRetailerId =
+    retailerParam && /^\d+$/.test(retailerParam) ? Number(retailerParam) : null;
+
   const retailers = await db
     .select({
       id: users.id,
@@ -19,8 +27,8 @@ export default async function AccountingPage() {
     .where(eq(users.role, "VENDOR"))
     .orderBy(asc(users.businessName));
 
-  // Latest 5 ledger entries per retailer would be N+1 — instead take the
-  // latest 60 overall and group in JS (fast, covers the active retailers).
+  // Latest 60 ledger entries overall, grouped per retailer in JS (fast,
+  // covers the active retailers without N+1).
   const recent = await db
     .select({
       id: transactions.id,
@@ -35,11 +43,43 @@ export default async function AccountingPage() {
     .orderBy(desc(transactions.createdAt))
     .limit(60);
 
+  // Full ledger for the workbench's active retailer.
+  const activeLedger =
+    activeRetailerId === null
+      ? []
+      : await db
+          .select({
+            id: transactions.id,
+            vendorId: transactions.vendorId,
+            type: transactions.type,
+            amount: transactions.amount,
+            note: transactions.note,
+            orderId: transactions.orderId,
+            createdAt: transactions.createdAt,
+          })
+          .from(transactions)
+          .where(eq(transactions.vendorId, activeRetailerId))
+          .orderBy(desc(transactions.createdAt))
+          .limit(LEDGER_LIMIT);
+
   const outstanding = retailers.reduce((s, r) => s + Number(r.balance), 0);
+
+  const toClient = (t: (typeof recent)[number]) => ({
+    id: t.id,
+    vendorId: t.vendorId,
+    type: t.type,
+    amount: Number(t.amount),
+    note: t.note,
+    orderId: t.orderId,
+    createdAt:
+      t.createdAt instanceof Date ? t.createdAt.toISOString() : String(t.createdAt),
+  });
 
   return (
     <AccountingClient
       outstanding={outstanding}
+      activeRetailerId={activeRetailerId}
+      activeLedger={activeLedger.map(toClient)}
       retailers={retailers.map((r) => ({
         id: r.id,
         businessName: r.businessName,
@@ -48,18 +88,7 @@ export default async function AccountingPage() {
         balance: Number(r.balance),
         tier: r.tier,
       }))}
-      recent={recent.map((t) => ({
-        id: t.id,
-        vendorId: t.vendorId,
-        type: t.type,
-        amount: Number(t.amount),
-        note: t.note,
-        orderId: t.orderId,
-        createdAt:
-          t.createdAt instanceof Date
-            ? t.createdAt.toISOString()
-            : String(t.createdAt),
-      }))}
+      recent={recent.map(toClient)}
     />
   );
 }

@@ -217,7 +217,9 @@ export default function ReportsClient({
   const ordersTable = (
     <Table aria-label="Billed orders" className="min-w-175">
       <Table.Header columns={orderColumns}>
-        {(col) => <Table.Head key={col.id} id={col.id} label={col.label} />}
+        {(col) => (
+          <Table.Head key={col.id} id={col.id} label={col.label} isRowHeader={col.id === "retailer"} />
+        )}
       </Table.Header>
       <Table.Body items={visible}>
         {(o) => (
@@ -324,7 +326,9 @@ export default function ReportsClient({
   const txnsTable = (
     <Table aria-label="Money entries" className="min-w-175">
       <Table.Header columns={txnColumns}>
-        {(col) => <Table.Head key={col.id} id={col.id} label={col.label} />}
+        {(col) => (
+          <Table.Head key={col.id} id={col.id} label={col.label} isRowHeader={col.id === "retailer"} />
+        )}
       </Table.Header>
       <Table.Body items={visibleTxns}>
         {(t) => (

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Minus, Plus, SearchLg } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -13,7 +13,7 @@ import { Select } from "@/components/base/select/select";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import type { Tier } from "@/db/schema";
-import { TIER_LABELS, TIERS, formatDateStr, inr } from "@/lib/format";
+import { TIER_LABELS, TIERS, inr } from "@/lib/format";
 import { recordAdjustment, recordPayment } from "@/lib/actions/accounting";
 import { cx } from "@/utils/cx";
 
@@ -156,13 +156,19 @@ function MoneyModal({
 
 export default function AccountingClient({
   outstanding,
+  activeRetailerId,
+  activeLedger,
   retailers,
   recent,
 }: {
   outstanding: number;
+  activeRetailerId: number | null;
+  activeLedger: LedgerRow[];
   retailers: RetailerBalance[];
   recent: LedgerRow[];
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [dueFilter, setDueFilter] = useState("owing");
@@ -190,24 +196,33 @@ export default function AccountingClient({
     rows.sort((a, b) => {
       if (sort === "vendor") return a.businessName.localeCompare(b.businessName);
       if (sort === "tier")
-        return (
-          (TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier)) || b.balance - a.balance
-        );
+        return TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier) || b.balance - a.balance;
       return b.balance - a.balance;
     });
     return rows;
   }, [retailers, query, tiers, dueFilter, sort]);
 
-  const byVendor = useMemo(() => {
+  // Workbench selection follows the URL (?retailer=), defaulting to top dues.
+  const selected =
+    visible.find((r) => r.id === activeRetailerId) ?? visible[0] ?? null;
+
+  function select(id: number) {
+    router.replace(`${pathname}?retailer=${id}`, { scroll: false });
+  }
+
+  const ledger = useMemo(() => {
+    if (!selected) return [];
+    if (selected.id === activeRetailerId) return activeLedger;
     const m = new Map<number, LedgerRow[]>();
     for (const t of recent) {
       const list = m.get(t.vendorId) ?? [];
       if (list.length < 3) list.push(t);
       m.set(t.vendorId, list);
     }
-    return m;
-  }, [recent]);
+    return m.get(selected.id) ?? [];
+  }, [selected, activeRetailerId, activeLedger, recent]);
 
+  const fullLedger = selected !== null && selected.id === activeRetailerId;
   const owingCount = retailers.filter((r) => r.balance > 0).length;
   const modalRetailer = modal ? retailers.find((r) => r.id === modal.retailerId) : undefined;
 
@@ -216,8 +231,7 @@ export default function AccountingClient({
       <div>
         <h1 className="text-display-xs font-semibold text-primary">Accounting</h1>
         <p className="mt-1 text-sm text-tertiary">
-          <strong className="text-primary">Collect</strong> = money received, dues go down.{" "}
-          <strong className="text-primary">Charge</strong> = extra charge, dues go up.
+          Pick a retailer, review the ledger, collect or charge — same flow as Billing.
         </p>
         <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
           <div className="flex items-baseline gap-1.5">
@@ -231,158 +245,229 @@ export default function AccountingClient({
         </dl>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-40 flex-1 sm:max-w-60">
-          <Input
-            size="md"
-            aria-label="Search retailer or phone"
-            placeholder="Search retailer / phone"
-            icon={SearchLg}
-            value={query}
-            onChange={(v) => setQuery(v)}
-          />
-        </div>
-        <div className="min-w-35 flex-1 sm:max-w-45">
-          <MultiSelect
-            size="md"
-            placeholder="All ranks"
-            selectedCountFormatter={(n) => `${n} rank${n === 1 ? "" : "s"}`}
-            items={TIERS.map((t) => ({ id: t, label: TIER_LABELS[t] }))}
-            selectedKeys={new Set(tiers)}
-            showFooter={false}
-            onSelectionChange={(sel) =>
-              setTiers(sel === "all" ? [...TIERS] : ([...sel].map(String) as Tier[]))
-            }
-          >
-            {(item) => <MultiSelect.Item key={item.id} id={String(item.id)} label={item.label} />}
-          </MultiSelect>
-        </div>
-        <div className="w-35">
-          <Select
-            size="md"
-            aria-label="Dues filter"
-            items={[
-              { id: "owing", label: "Owing" },
-              { id: "settled", label: "Settled" },
-              { id: "all", label: "All" },
-            ]}
-            selectedKey={dueFilter}
-            onSelectionChange={(k) => setDueFilter(String(k))}
-          >
-            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
-          </Select>
-        </div>
-        <div className="w-40">
-          <Select
-            size="md"
-            aria-label="Sort retailers"
-            items={[
-              { id: "balance", label: "Highest dues" },
-              { id: "vendor", label: "Retailer A–Z" },
-              { id: "tier", label: "Rank (VIP first)" },
-            ]}
-            selectedKey={sort}
-            onSelectionChange={(k) => setSort(String(k))}
-          >
-            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
-          </Select>
-        </div>
-      </div>
-
-      {visible.length === 0 ? (
-        <EmptyState size="md">
-          <EmptyState.FeaturedIcon color="gray" />
-          <EmptyState.Title>No retailers match</EmptyState.Title>
-          <EmptyState.Description>Try a different search or filter.</EmptyState.Description>
-        </EmptyState>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {visible.map((r) => (
-            <li key={r.id} className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
-              <div className="flex flex-wrap items-center gap-2">
-                <details className="group min-w-0 flex-1">
-                  <summary className="flex cursor-pointer items-center gap-1 outline-focus-ring focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
-                    <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate text-sm font-semibold text-primary">
-                          {r.businessName}
-                        </span>
-                        <Badge size="sm" type="pill-color" color={r.tier === "VIP" ? "warning" : "gray"}>
-                          {TIER_LABELS[r.tier]}
-                        </Badge>
-                        {!r.active && (
-                          <Badge size="sm" type="pill-color" color="gray">
-                            Inactive
-                          </Badge>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-sm text-tertiary">
-                        Owes {inr(r.balance)}
-                        {r.phone ? ` · ${r.phone}` : ""}
-                      </span>
-                    </span>
-                    <span className="ml-1 text-fg-quaternary transition-transform group-open:rotate-180">
-                      ▾
-                    </span>
-                  </summary>
-                  <div className="mt-2 border-t border-secondary pt-2">
-                    {(byVendor.get(r.id) ?? []).map((t) => (
-                      <p key={t.id} className="py-0.5 text-xs text-tertiary">
-                        <Badge size="sm" type="pill-color" color={TXN_BADGE[t.type]}>
-                          {TXN_LABEL[t.type]}
-                        </Badge>{" "}
-                        {t.amount >= 0 ? "+" : "−"}
-                        {inr(Math.abs(t.amount))} · {formatTxnDate(t.createdAt)}
-                        {t.note ? ` — ${t.note}` : ""}
-                        {t.orderId ? (
-                          <>
-                            {" · "}
-                            <Link
-                              href={`/admin/orders/${t.orderId}`}
-                              className="text-brand-secondary hover:underline"
-                            >
-                              order #{t.orderId}
-                            </Link>
-                          </>
-                        ) : null}
-                      </p>
-                    ))}
-                    {(byVendor.get(r.id) ?? []).length === 0 && (
-                      <p className="py-0.5 text-xs text-tertiary">No recent entries.</p>
-                    )}
-                    <Link
-                      href={`/admin/orders?tab=outstanding&retailers=${r.id}`}
-                      className="mt-1 inline-block text-xs font-semibold text-brand-secondary hover:underline"
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        {/* ---------- Retailer selection ---------- */}
+        <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary lg:col-span-5">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <div className="min-w-35 flex-1">
+              <Input
+                size="md"
+                aria-label="Search retailer or phone"
+                placeholder="Search retailer / phone"
+                icon={SearchLg}
+                value={query}
+                onChange={(v) => setQuery(v)}
+              />
+            </div>
+            <div className="w-30">
+              <Select
+                size="md"
+                aria-label="Dues filter"
+                items={[
+                  { id: "owing", label: "Owing" },
+                  { id: "settled", label: "Settled" },
+                  { id: "all", label: "All" },
+                ]}
+                selectedKey={dueFilter}
+                onSelectionChange={(k) => setDueFilter(String(k))}
+              >
+                {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+              </Select>
+            </div>
+            <div className="w-30">
+              <Select
+                size="md"
+                aria-label="Sort retailers"
+                items={[
+                  { id: "balance", label: "Highest dues" },
+                  { id: "vendor", label: "Name" },
+                  { id: "tier", label: "Rank" },
+                ]}
+                selectedKey={sort}
+                onSelectionChange={(k) => setSort(String(k))}
+              >
+                {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+              </Select>
+            </div>
+          </div>
+          <div className="mb-2">
+            <MultiSelect
+              size="md"
+              placeholder="All ranks"
+              selectedCountFormatter={(n) => `${n} rank${n === 1 ? "" : "s"}`}
+              items={TIERS.map((t) => ({ id: t, label: TIER_LABELS[t] }))}
+              selectedKeys={new Set(tiers)}
+              showFooter={false}
+              onSelectionChange={(sel) =>
+                setTiers(sel === "all" ? [...TIERS] : ([...sel].map(String) as Tier[]))
+              }
+            >
+              {(item) => <MultiSelect.Item key={item.id} id={String(item.id)} label={item.label} />}
+            </MultiSelect>
+          </div>
+          {visible.length === 0 ? (
+            <EmptyState size="md">
+              <EmptyState.FeaturedIcon color="gray" />
+              <EmptyState.Title>No retailers match</EmptyState.Title>
+              <EmptyState.Description>Try a different search or filter.</EmptyState.Description>
+            </EmptyState>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {visible.map((r) => {
+                const on = selected?.id === r.id;
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => select(r.id)}
+                      aria-pressed={on}
+                      className={cx(
+                        "flex w-full cursor-pointer items-center gap-2.5 rounded-lg p-2.5 text-left ring-1 outline-focus-ring transition-colors ring-inset focus-visible:outline-2",
+                        on ? "bg-brand-primary ring-brand" : "bg-primary ring-secondary hover:bg-primary_hover",
+                      )}
                     >
-                      Full money trail in Reports →
-                    </Link>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate text-sm font-semibold text-primary">
+                            {r.businessName}
+                          </span>
+                          <Badge size="sm" type="pill-color" color={r.tier === "VIP" ? "warning" : "gray"}>
+                            {TIER_LABELS[r.tier]}
+                          </Badge>
+                          {!r.active && (
+                            <Badge size="sm" type="pill-color" color="gray">
+                              Inactive
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block text-sm text-tertiary">
+                          Owes {inr(r.balance)}
+                          {r.phone ? ` · ${r.phone}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-tertiary">
+            <strong className="text-secondary">Collect</strong> = money received, dues go down.{" "}
+            <strong className="text-secondary">Charge</strong> = extra charge, dues go up.
+          </p>
+        </section>
+
+        {/* ---------- Ledger + actions ---------- */}
+        <section className="flex flex-col gap-4 lg:col-span-7">
+          {!selected ? (
+            <EmptyState size="md">
+              <EmptyState.FeaturedIcon color="gray" />
+              <EmptyState.Title>No retailer selected</EmptyState.Title>
+            </EmptyState>
+          ) : (
+            <>
+              <div className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="flex flex-wrap items-center gap-1.5 text-md font-semibold text-primary">
+                      {selected.businessName}
+                      <Badge size="sm" type="pill-color" color={selected.tier === "VIP" ? "warning" : "gray"}>
+                        {TIER_LABELS[selected.tier]}
+                      </Badge>
+                    </h2>
+                    <p className="mt-0.5 text-sm text-tertiary">
+                      {selected.phone ?? "no phone"}
+                    </p>
+                    <p className="mt-1 text-display-xs font-bold text-primary">
+                      {inr(selected.balance)}
+                      <span className="ml-2 align-middle text-xs font-normal text-quaternary">
+                        outstanding
+                      </span>
+                    </p>
                   </div>
-                </details>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    iconLeading={Minus}
-                    onClick={() => setModal({ retailerId: r.id, mode: "remove" })}
-                    isDisabled={r.balance <= 0}
-                  >
-                    Collect
-                  </Button>
-                  <Button
-                    size="sm"
-                    color="secondary"
-                    iconLeading={Plus}
-                    onClick={() => setModal({ retailerId: r.id, mode: "add" })}
-                  >
-                    Charge
-                  </Button>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="md"
+                      color="secondary"
+                      iconLeading={Minus}
+                      onClick={() => setModal({ retailerId: selected.id, mode: "remove" })}
+                      isDisabled={selected.balance <= 0}
+                    >
+                      Collect
+                    </Button>
+                    <Button
+                      size="md"
+                      color="primary"
+                      iconLeading={Plus}
+                      onClick={() => setModal({ retailerId: selected.id, mode: "add" })}
+                    >
+                      Charge
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+
+              <div className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+                <h3 className="text-md font-semibold text-primary">
+                  Ledger {fullLedger ? `(${ledger.length})` : "(recent)"}
+                </h3>
+                {ledger.length === 0 ? (
+                  <p className="mt-2 text-sm text-tertiary">No entries yet.</p>
+                ) : (
+                  <ul className="mt-2 flex flex-col">
+                    {ledger.map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex items-center justify-between gap-2 border-t border-secondary py-2.5 first:border-0 first:pt-0"
+                      >
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-1.5">
+                            <Badge size="sm" type="pill-color" color={TXN_BADGE[t.type]}>
+                              {TXN_LABEL[t.type]}
+                            </Badge>
+                            <span className="truncate text-sm text-secondary">
+                              {t.note ?? ""}
+                            </span>
+                          </p>
+                          <p className="mt-0.5 text-xs text-tertiary">
+                            {formatTxnDate(t.createdAt)}
+                            {t.orderId ? (
+                              <>
+                                {" · "}
+                                <Link
+                                  href={`/admin/orders/${t.orderId}`}
+                                  className="text-brand-secondary hover:underline"
+                                >
+                                  order #{t.orderId}
+                                </Link>
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                        <span
+                          className={cx(
+                            "shrink-0 text-sm font-semibold",
+                            t.amount >= 0 ? "text-warning-primary" : "text-success-primary",
+                          )}
+                        >
+                          {t.amount >= 0 ? "+" : "−"}
+                          {inr(Math.abs(t.amount))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  href={`/admin/orders?tab=outstanding&retailers=${selected.id}`}
+                  className="mt-2 inline-block text-sm font-semibold text-brand-secondary hover:underline"
+                >
+                  Full money trail in Reports →
+                </Link>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
 
       {modal && modalRetailer && (
         <MoneyModal
@@ -416,10 +501,6 @@ export default function AccountingClient({
           </div>
         </div>
       )}
-
-      <p className="text-xs text-tertiary">
-        Ledger entries use Asia/Kolkata time · {formatDateStr(new Date().toISOString().slice(0, 10))} today
-      </p>
     </div>
   );
 }

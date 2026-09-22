@@ -14,24 +14,14 @@ export const useColorMode = () => useContext(ModeContext);
 const STORAGE_KEY = "vf-theme";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<Mode>("light");
-
-  // Restore saved preference (or OS setting) after mount to avoid SSR mismatch.
-  // Runs once; the no-op setState when nothing is stored bails out for free.
-  /* eslint-disable react-hooks/set-state-in-effect -- mount-once theme restore */
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "light" || saved === "dark") {
-        setMode(saved);
-      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setMode("dark");
-      }
-    } catch {
-      // private mode etc. — stay light
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  // Initial state mirrors what the blocking head script in layout.tsx already
+  // applied to <html> — no effect ordering, no first-paint flash, no clobber.
+  const [mode, setMode] = useState<Mode>(() =>
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark-mode")
+      ? "dark"
+      : "light",
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark-mode", mode === "dark");
@@ -39,7 +29,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, mode);
     } catch {
-      // ignore
+      // ignore (private mode etc.)
     }
   }, [mode]);
 

@@ -44,6 +44,16 @@ html {
     color-scheme: light;
 }
 
+/* Eyestrain pass: soften the light surfaces one step down from pure white.
+   Dark theme (.dark-mode) is untouched. Unlayered :root wins over the
+   layered @theme tokens. */
+:root {
+    --color-bg-primary: #f3f4f1;
+    --color-bg-secondary: #e8eae5;
+    --color-bg-tertiary: #dde0da;
+    --color-bg-quaternary: #cfd4cc;
+}
+
 html.dark-mode {
     color-scheme: dark;
 }
