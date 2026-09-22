@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { version } from "../../../../../package.json";
+import { version } from "../../../../package.json";
 
 // Baked at build time: tells you exactly which build is live in prod.
 export const dynamic = "force-static";
