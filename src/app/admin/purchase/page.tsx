@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { orderItems, orders, users } from "@/db/schema";
+import { orderItems, orders, products, users } from "@/db/schema";
 import { getWindowState } from "@/lib/window";
 import ManifestClient from "./ManifestClient";
 
@@ -18,18 +18,21 @@ export default async function ManifestPage(props: {
     .select({
       productId: orderItems.productId,
       name: orderItems.productName,
+      category: products.category,
       unit: orderItems.unit,
       needed: sql<string>`sum(coalesce(${orderItems.confirmedQuantity}, ${orderItems.quantity}))`,
       vendors: sql<number>`count(distinct ${orders.vendorId})::int`,
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .leftJoin(products, eq(products.id, orderItems.productId))
     .where(
       sql`${orders.windowDate} = ${windowDate} and (${orders.status} = 'CONFIRMED' or ${orders.status} = 'DELIVERED')`,
     )
     .groupBy(
       orderItems.productId,
       orderItems.productName,
+      products.category,
       orderItems.unit,
     );
 

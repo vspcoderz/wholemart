@@ -1,13 +1,16 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Printer } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
-import { UNIT_LABELS, formatDateStr } from "@/lib/format";
-import type { Unit } from "@/db/schema";
+import { Tab, TabList, Tabs } from "@/components/application/tabs/tabs";
+import { CATEGORIES, CATEGORY_LABELS, UNIT_LABELS, formatDateStr } from "@/lib/format";
+import type { Category, Unit } from "@/db/schema";
 
 type ProductTotal = {
   productId: number | null;
   name: string;
+  category: Category | null;
   unit: string;
   needed: number;
   vendors: number;
@@ -31,6 +34,11 @@ export default function ManifestClient({
   productTotals: ProductTotal[];
   vendorItems: VendorOrder[];
 }) {
+  const [cat, setCat] = useState<string>("ALL");
+  const totals = useMemo(
+    () => productTotals.filter((p) => cat === "ALL" || p.category === cat),
+    [productTotals, cat],
+  );
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,12 +79,25 @@ export default function ManifestClient({
       </div>
 
       <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
-        <h2 className="text-md font-semibold text-primary">
-          What to buy / prepare ({productTotals.length} products)
-        </h2>
-        {productTotals.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-md font-semibold text-primary">
+            What to buy / prepare ({totals.length} products)
+          </h2>
+          <Tabs
+            selectedKey={cat}
+            onSelectionChange={(k) => setCat(String(k))}
+          >
+            <TabList type="button-gray" size="sm" aria-label="Filter by category">
+              <Tab id="ALL" label="All" />
+              {CATEGORIES.map((c) => (
+                <Tab key={c} id={c} label={CATEGORY_LABELS[c]} />
+              ))}
+            </TabList>
+          </Tabs>
+        </div>
+        {totals.length === 0 ? (
           <p className="mt-2 text-sm text-tertiary">
-            No billed orders for this window — finalize them in Billing first.
+            Nothing in this category — finalize orders in Billing first.
           </p>
         ) : (
           <div className="mt-2 overflow-x-auto">
@@ -91,7 +112,7 @@ export default function ManifestClient({
                 </tr>
               </thead>
               <tbody>
-                {productTotals.map((p) => (
+                {totals.map((p) => (
                   <tr
                     key={`${p.productId ?? "deleted"}-${p.name}-${p.unit}`}
                     className="border-b border-secondary last:border-0"
