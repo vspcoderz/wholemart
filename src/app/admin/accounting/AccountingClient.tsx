@@ -1,27 +1,21 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Snackbar,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { Add, ExpandLess, ExpandMore, Remove } from "@mui/icons-material";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Minus, Plus, SearchLg } from "@untitledui/icons";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { MultiSelect } from "@/components/base/select/multi-select";
+import { Select } from "@/components/base/select/select";
+import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
 import type { Tier } from "@/db/schema";
-import { TIER_LABELS, inr } from "@/lib/format";
+import { TIER_LABELS, TIERS, formatDateStr, inr } from "@/lib/format";
 import { recordAdjustment, recordPayment } from "@/lib/actions/accounting";
+import { cx } from "@/utils/cx";
 
 export type RetailerBalance = {
   id: number;
@@ -48,102 +42,115 @@ const TXN_LABEL: Record<LedgerRow["type"], string> = {
   ADJUSTMENT: "Adjusted",
 };
 
-type ModalState = { retailer: RetailerBalance; mode: "add" | "remove" };
+const TXN_BADGE: Record<LedgerRow["type"], "warning" | "success" | "blue"> = {
+  CHARGE: "warning",
+  PAYMENT: "success",
+  ADJUSTMENT: "blue",
+};
+
+type ModalState = { retailerId: number; mode: "add" | "remove" };
+
+function formatTxnDate(iso: string): string {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+}
 
 function MoneyModal({
-  state,
+  retailer,
+  mode,
   onClose,
   notify,
 }: {
-  state: ModalState | null;
+  retailer: RetailerBalance;
+  mode: "add" | "remove";
   onClose: () => void;
-  notify: (msg: string, severity: "success" | "error") => void;
+  notify: (msg: string, ok: boolean) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
 
   const value = Number(amount);
   const valid = Number.isFinite(value) && value > 0;
   const after =
-    state == null || !valid
-      ? null
-      : state.mode === "add"
-        ? state.retailer.balance + value
-        : state.retailer.balance - value;
-
-  function close() {
-    setAmount("");
-    onClose();
-  }
+    mode === "add" ? retailer.balance + (valid ? value : 0) : retailer.balance - (valid ? value : 0);
 
   function confirm() {
-    if (state == null || !valid) return;
+    if (!valid) return;
     startTransition(async () => {
       const res =
-        state.mode === "add"
-          ? await recordAdjustment(state.retailer.id, value, "Extra charge")
-          : await recordPayment(state.retailer.id, value, "");
+        mode === "add"
+          ? await recordAdjustment(retailer.id, value, note || "Extra charge")
+          : await recordPayment(retailer.id, value, note || "Payment received");
       if (res.ok) {
         notify(
-          state.mode === "add"
-            ? `Added ${inr(value)} to dues.`
-            : `Removed ${inr(value)} from dues.`,
-          "success",
+          mode === "add" ? `Added ${inr(value)} to dues.` : `Recorded ${inr(value)} received.`,
+          true,
         );
-        close();
+        onClose();
         router.refresh();
       } else {
-        notify(res.error, "error");
+        notify(res.error, false);
       }
     });
   }
 
   return (
-    <Dialog open={state !== null} onClose={close} fullWidth maxWidth="xs">
-      <DialogTitle>
-        {state?.mode === "add" ? "Add to dues" : "Remove from dues"}
-        {state ? ` — ${state.retailer.businessName}` : ""}
-      </DialogTitle>
-      <DialogContent sx={{ display: "grid", gap: 2, pt: 1 }}>
-        {state && (
-          <Typography variant="body2" color="text.secondary">
-            Owes now: {inr(state.retailer.balance)}
-            {after !== null && (
+    <ModalOverlay isOpen onOpenChange={(open) => !open && onClose()} isDismissable>
+      <Modal className="sm:max-w-md">
+        <Dialog className="p-6">
+          <h2 className="text-md font-semibold text-primary">
+            {mode === "add" ? "Add to dues" : "Record payment"} — {retailer.businessName}
+          </h2>
+          <p className="mt-1 text-sm text-tertiary">
+            Owes now: {inr(retailer.balance)}
+            {valid && (
               <>
                 {" → "}
-                <strong>{inr(after)}</strong>
+                <strong className="text-primary">{inr(after)}</strong>
               </>
             )}
-          </Typography>
-        )}
-        <TextField
-          label="Amount ₹"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-          autoFocus
-          slotProps={{ htmlInput: { inputMode: "decimal" } }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") confirm();
-          }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={close}>Cancel</Button>
-        <Button
-          variant="contained"
-          color={state?.mode === "add" ? "warning" : "success"}
-          onClick={confirm}
-          disabled={pending || !valid}
-        >
-          {pending
-            ? "Saving…"
-            : state?.mode === "add"
-              ? `Add ${valid ? inr(value) : ""}`
-              : `Remove ${valid ? inr(value) : ""}`}
-        </Button>
-      </DialogActions>
-    </Dialog>
+          </p>
+          <div className="mt-4 flex flex-col gap-3">
+            <Input
+              size="md"
+              aria-label="Amount in rupees"
+              placeholder="Amount ₹"
+              value={amount}
+              onChange={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
+              autoFocus
+            />
+            <TextArea
+              aria-label="Note"
+              placeholder={mode === "add" ? "Reason (e.g. crate deposit)" : "Note (e.g. cash, UPI ref)"}
+              value={note}
+              onChange={(v: string) => setNote(v)}
+              rows={2}
+            />
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button size="md" color="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              size="md"
+              color="primary"
+              isLoading={pending}
+              isDisabled={pending || !valid}
+              onClick={confirm}
+            >
+              {mode === "add" ? `Add ${valid ? inr(value) : ""}` : `Record ${valid ? inr(value) : ""}`}
+            </Button>
+          </div>
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
   );
 }
 
@@ -157,25 +164,39 @@ export default function AccountingClient({
   recent: LedgerRow[];
 }) {
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [dueFilter, setDueFilter] = useState("owing");
+  const [sort, setSort] = useState("balance");
   const [modal, setModal] = useState<ModalState | null>(null);
-  const [toast, setToast] = useState<{
-    msg: string;
-    severity: "success" | "error";
-  } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  function notify(msg: string, severity: "success" | "error") {
-    setToast({ msg, severity });
-  }
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = retailers.filter(
-      (r) => q === "" || r.businessName.toLowerCase().includes(q),
+      (r) =>
+        (tiers.length === 0 || tiers.includes(r.tier)) &&
+        (dueFilter === "all" ||
+          (dueFilter === "owing" ? r.balance > 0 : r.balance <= 0)) &&
+        (q === "" ||
+          r.businessName.toLowerCase().includes(q) ||
+          (r.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, ""))),
     );
-    rows.sort((a, b) => b.balance - a.balance);
+    rows.sort((a, b) => {
+      if (sort === "vendor") return a.businessName.localeCompare(b.businessName);
+      if (sort === "tier")
+        return (
+          (TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier)) || b.balance - a.balance
+        );
+      return b.balance - a.balance;
+    });
     return rows;
-  }, [retailers, query]);
+  }, [retailers, query, tiers, dueFilter, sort]);
 
   const byVendor = useMemo(() => {
     const m = new Map<number, LedgerRow[]>();
@@ -187,151 +208,218 @@ export default function AccountingClient({
     return m;
   }, [recent]);
 
+  const owingCount = retailers.filter((r) => r.balance > 0).length;
+  const modalRetailer = modal ? retailers.find((r) => r.id === modal.retailerId) : undefined;
+
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
-        Accounting
-      </Typography>
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-display-xs font-semibold text-primary">Accounting</h1>
+        <p className="mt-1 text-sm text-tertiary">
+          <strong className="text-primary">Collect</strong> = money received, dues go down.{" "}
+          <strong className="text-primary">Charge</strong> = extra charge, dues go up.
+        </p>
+        <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-xs text-quaternary">Outstanding</dt>
+            <dd className="text-sm font-semibold text-primary">{inr(outstanding)}</dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-xs text-quaternary">Owing retailers</dt>
+            <dd className="text-sm font-semibold text-primary">{owingCount}</dd>
+          </div>
+        </dl>
+      </div>
 
-      <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 2 }}>
-        <CardContent
-          sx={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}
-        >
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Total outstanding
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {inr(outstanding)}
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-            <strong>Remove</strong> = money received, dues go down.{" "}
-            <strong>Add</strong> = extra charge, dues go up.
-          </Typography>
-          <TextField
-            size="small"
-            label="Search retailer"
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-40 flex-1 sm:max-w-60">
+          <Input
+            size="md"
+            aria-label="Search retailer or phone"
+            placeholder="Search retailer / phone"
+            icon={SearchLg}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            sx={{ minWidth: 180 }}
+            onChange={(v) => setQuery(v)}
           />
-        </CardContent>
-      </Card>
-
-      {visible.map((r) => (
-        <Card
-          key={r.id}
-          variant="outlined"
-          sx={{ borderRadius: 1.5, mb: 1 }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              p: 2,
-              flexWrap: "wrap",
-            }}
+        </div>
+        <div className="min-w-35 flex-1 sm:max-w-45">
+          <MultiSelect
+            size="md"
+            placeholder="All ranks"
+            selectedCountFormatter={(n) => `${n} rank${n === 1 ? "" : "s"}`}
+            items={TIERS.map((t) => ({ id: t, label: TIER_LABELS[t] }))}
+            selectedKeys={new Set(tiers)}
+            showFooter={false}
+            onSelectionChange={(sel) =>
+              setTiers(sel === "all" ? [...TIERS] : ([...sel].map(String) as Tier[]))
+            }
           >
-            <Box
-              onClick={() => setExpanded((v) => (v === r.id ? null : r.id))}
-              sx={{
-                flexGrow: 1,
-                minWidth: 0,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600 }} noWrap>
-                  {r.businessName}{" "}
-                  <Chip
-                    label={TIER_LABELS[r.tier]}
-                    color={r.tier === "VIP" ? "warning" : "default"}
-                    size="small"
-                    sx={{ ml: 0.5, height: 20, fontSize: 11 }}
-                  />
-                  {!r.active && (
-                    <Chip label="Inactive" size="small" sx={{ ml: 0.5 }} />
-                  )}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Owes {inr(r.balance)}
-                  {r.phone ? ` · ${r.phone}` : ""}
-                </Typography>
-              </Box>
-              <IconButton size="small">
-                {expanded === r.id ? <ExpandLess /> : <ExpandMore />}
-              </IconButton>
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                startIcon={<Remove />}
-                onClick={() => setModal({ retailer: r, mode: "remove" })}
-                disabled={r.balance <= 0}
-              >
-                Remove
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="warning"
-                startIcon={<Add />}
-                onClick={() => setModal({ retailer: r, mode: "add" })}
-              >
-                Add
-              </Button>
-            </Box>
-          </Box>
+            {(item) => <MultiSelect.Item key={item.id} id={String(item.id)} label={item.label} />}
+          </MultiSelect>
+        </div>
+        <div className="w-35">
+          <Select
+            size="md"
+            aria-label="Dues filter"
+            items={[
+              { id: "owing", label: "Owing" },
+              { id: "settled", label: "Settled" },
+              { id: "all", label: "All" },
+            ]}
+            selectedKey={dueFilter}
+            onSelectionChange={(k) => setDueFilter(String(k))}
+          >
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+          </Select>
+        </div>
+        <div className="w-40">
+          <Select
+            size="md"
+            aria-label="Sort retailers"
+            items={[
+              { id: "balance", label: "Highest dues" },
+              { id: "vendor", label: "Retailer A–Z" },
+              { id: "tier", label: "Rank (VIP first)" },
+            ]}
+            selectedKey={sort}
+            onSelectionChange={(k) => setSort(String(k))}
+          >
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+          </Select>
+        </div>
+      </div>
 
-          {expanded === r.id && (
-            <Box sx={{ px: 2, pb: 2 }}>
-              {(byVendor.get(r.id) ?? []).map((t) => (
-                <Typography
-                  key={t.id}
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block" }}
-                >
-                  {TXN_LABEL[t.type]} {t.amount >= 0 ? "+" : "−"}
-                  {inr(Math.abs(t.amount))}
-                  {t.note ? ` — ${t.note}` : ""}
-                </Typography>
-              ))}
-              {(byVendor.get(r.id) ?? []).length === 0 && (
-                <Typography variant="caption" color="text.secondary">
-                  No entries yet.
-                </Typography>
-              )}
-            </Box>
+      {visible.length === 0 ? (
+        <EmptyState size="md">
+          <EmptyState.FeaturedIcon color="gray" />
+          <EmptyState.Title>No retailers match</EmptyState.Title>
+          <EmptyState.Description>Try a different search or filter.</EmptyState.Description>
+        </EmptyState>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {visible.map((r) => (
+            <li key={r.id} className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+              <div className="flex flex-wrap items-center gap-2">
+                <details className="group min-w-0 flex-1">
+                  <summary className="flex cursor-pointer items-center gap-1 outline-focus-ring focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="truncate text-sm font-semibold text-primary">
+                          {r.businessName}
+                        </span>
+                        <Badge size="sm" type="pill-color" color={r.tier === "VIP" ? "warning" : "gray"}>
+                          {TIER_LABELS[r.tier]}
+                        </Badge>
+                        {!r.active && (
+                          <Badge size="sm" type="pill-color" color="gray">
+                            Inactive
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block text-sm text-tertiary">
+                        Owes {inr(r.balance)}
+                        {r.phone ? ` · ${r.phone}` : ""}
+                      </span>
+                    </span>
+                    <span className="ml-1 text-fg-quaternary transition-transform group-open:rotate-180">
+                      ▾
+                    </span>
+                  </summary>
+                  <div className="mt-2 border-t border-secondary pt-2">
+                    {(byVendor.get(r.id) ?? []).map((t) => (
+                      <p key={t.id} className="py-0.5 text-xs text-tertiary">
+                        <Badge size="sm" type="pill-color" color={TXN_BADGE[t.type]}>
+                          {TXN_LABEL[t.type]}
+                        </Badge>{" "}
+                        {t.amount >= 0 ? "+" : "−"}
+                        {inr(Math.abs(t.amount))} · {formatTxnDate(t.createdAt)}
+                        {t.note ? ` — ${t.note}` : ""}
+                        {t.orderId ? (
+                          <>
+                            {" · "}
+                            <Link
+                              href={`/admin/orders/${t.orderId}`}
+                              className="text-brand-secondary hover:underline"
+                            >
+                              order #{t.orderId}
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
+                    ))}
+                    {(byVendor.get(r.id) ?? []).length === 0 && (
+                      <p className="py-0.5 text-xs text-tertiary">No recent entries.</p>
+                    )}
+                    <Link
+                      href={`/admin/orders?tab=outstanding&retailers=${r.id}`}
+                      className="mt-1 inline-block text-xs font-semibold text-brand-secondary hover:underline"
+                    >
+                      Full money trail in Reports →
+                    </Link>
+                  </div>
+                </details>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    iconLeading={Minus}
+                    onClick={() => setModal({ retailerId: r.id, mode: "remove" })}
+                    isDisabled={r.balance <= 0}
+                  >
+                    Collect
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    iconLeading={Plus}
+                    onClick={() => setModal({ retailerId: r.id, mode: "add" })}
+                  >
+                    Charge
+                  </Button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {modal && modalRetailer && (
+        <MoneyModal
+          key={`${modal.retailerId}:${modal.mode}`}
+          retailer={modalRetailer}
+          mode={modal.mode}
+          onClose={() => setModal(null)}
+          notify={(msg, ok) => setToast({ msg, ok })}
+        />
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed bottom-20 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl p-3.5 text-sm font-medium shadow-lg ring-1 ring-inset lg:bottom-8",
+            toast.ok
+              ? "bg-success-solid text-white ring-transparent"
+              : "bg-error-solid text-white ring-transparent",
           )}
-        </Card>
-      ))}
-
-      <MoneyModal
-        state={modal}
-        onClose={() => setModal(null)}
-        notify={notify}
-      />
-
-      <Snackbar
-        open={toast !== null}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-      >
-        <Alert
-          severity={toast?.severity ?? "success"}
-          onClose={() => setToast(null)}
         >
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <div className="flex items-center justify-between gap-2">
+            <span>{toast.msg}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="cursor-pointer rounded-md px-2 py-0.5 outline-focus-ring hover:bg-white/15 focus-visible:outline-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-tertiary">
+        Ledger entries use Asia/Kolkata time · {formatDateStr(new Date().toISOString().slice(0, 10))} today
+      </p>
+    </div>
   );
 }

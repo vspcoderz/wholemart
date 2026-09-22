@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Grid,
-  Typography,
-} from "@mui/material";
 import Link from "next/link";
-import { ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, inr } from "@/lib/format";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { ORDER_STATUS_LABELS, inr } from "@/lib/format";
 import { formatDateStr, formatMinutes } from "@/lib/format";
 
 export type DayRevenue = { windowDate: string; orders: number; revenue: number };
@@ -28,6 +21,13 @@ export type RecentOrder = {
   vendorName: string;
   total: number;
   itemCount: number;
+};
+
+const STATUS_BADGE: Record<RecentOrder["status"], "blue" | "warning" | "success" | "gray"> = {
+  PLACED: "blue",
+  CONFIRMED: "warning",
+  DELIVERED: "success",
+  CANCELLED: "gray",
 };
 
 export default function DashboardClient({
@@ -58,224 +58,142 @@ export default function DashboardClient({
   recentOrders: RecentOrder[];
 }) {
   const stats = [
-    { label: "Total revenue", value: inr(totalRevenue) },
-    { label: "Outstanding dues", value: inr(outstanding) },
-    { label: "All orders", value: `${totalOrders} (${billedOrders} billed)` },
-    { label: "Retailers", value: String(vendorCount) },
-    { label: "Active products", value: String(productCount) },
+    { label: "Total revenue", value: inr(totalRevenue), href: "/admin/orders" },
+    { label: "Outstanding dues", value: inr(outstanding), href: "/admin/accounting" },
+    { label: "All orders", value: `${totalOrders} (${billedOrders} billed)`, href: "/admin/orders" },
+    { label: "Retailers", value: String(vendorCount), href: "/admin/settings?tab=retailers" },
+    { label: "Active products", value: String(productCount), href: "/admin/settings?tab=products" },
   ];
 
   const maxDay = Math.max(1, ...dayRevenue.map((d) => d.revenue));
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-          flexWrap: "wrap",
-          gap: 1,
-        }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Statistics
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Ordering {formatMinutes(windowStartMinutes)} –{" "}
-          {formatMinutes(windowEndMinutes)} · deliveries go out after close.
-        </Typography>
-      </Box>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-display-xs font-semibold text-primary">Statistics</h1>
+        <p className="text-sm text-tertiary">
+          Ordering {formatMinutes(windowStartMinutes)} – {formatMinutes(windowEndMinutes)} ·
+          deliveries go out after close.
+        </p>
+      </div>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {stats.map((s) => (
-          <Grid size={{ xs: 6, md: 2.4 }} key={s.label}>
-            <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
-              <CardContent>
-                <Typography variant="caption" color="text.secondary">
-                  {s.label}
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {s.value}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          <Link
+            key={s.label}
+            href={s.href}
+            className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary outline-focus-ring transition-colors hover:bg-primary_hover focus-visible:outline-2"
+          >
+            <p className="text-xs text-quaternary">{s.label}</p>
+            <p className="mt-1 text-md font-semibold text-primary">{s.value}</p>
+          </Link>
         ))}
-      </Grid>
+      </div>
 
-      <Grid container spacing={2} sx={{ mb: 3, alignItems: "stretch" }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
-            <CardContent>
-              <Typography gutterBottom sx={{ fontWeight: 700 }}>
-                Revenue — last 7 days
-              </Typography>
-              {dayRevenue.length === 0 ? (
-                <Typography color="text.secondary">No sales yet.</Typography>
-              ) : (
-                [...dayRevenue].reverse().map((d) => (
-                  <Box key={d.windowDate} sx={{ mb: 1 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2">
-                        {formatDateStr(d.windowDate)} · {d.orders} orders
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {inr(d.revenue)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        bgcolor: "action.hover",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          height: "100%",
-                          width: `${Math.round((d.revenue / maxDay) * 100)}%`,
-                          bgcolor: "primary.main",
-                          borderRadius: 4,
-                        }}
-                      />
-                    </Box>
-                  </Box>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card variant="outlined" sx={{ borderRadius: 1.5, height: "100%" }}>
-            <CardContent>
-              <Typography gutterBottom sx={{ fontWeight: 700 }}>
-                Top products (by revenue)
-              </Typography>
-              {topProducts.length === 0 ? (
-                <Typography color="text.secondary">No sales yet.</Typography>
-              ) : (
-                topProducts.map((p, i) => (
-                  <Box
-                    key={p.name}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      py: 0.75,
-                      borderBottom: i < topProducts.length - 1 ? 1 : 0,
-                      borderColor: "divider",
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {i + 1}. {p.name}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ ml: 1 }}
-                      >
-                        {p.qty} sold
-                      </Typography>
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {inr(p.revenue)}
-                    </Typography>
-                  </Box>
-                ))
-              )}
-              <Typography gutterBottom sx={{ fontWeight: 700, mt: 2 }}>
-                Top retailers (by purchases)
-              </Typography>
-              {topRetailers.length === 0 ? (
-                <Typography color="text.secondary">No sales yet.</Typography>
-              ) : (
-                topRetailers.map((r) => (
-                  <Box
-                    key={r.name}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      py: 0.5,
-                    }}
-                  >
-                    <Typography variant="body2">
-                      {r.name}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ ml: 1 }}
-                      >
-                        {r.orders} orders
-                        {r.balance > 0.004 && ` · owes ${inr(r.balance)}`}
-                      </Typography>
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {inr(r.revenue)}
-                    </Typography>
-                  </Box>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
+        <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+          <h2 className="text-md font-semibold text-primary">Revenue — last 7 days</h2>
+          {dayRevenue.length === 0 ? (
+            <p className="mt-2 text-sm text-tertiary">No sales yet.</p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2.5">
+              {[...dayRevenue].reverse().map((d) => (
+                <div key={d.windowDate}>
+                  <div className="flex justify-between gap-2">
+                    <p className="text-sm text-tertiary">
+                      {formatDateStr(d.windowDate)} · {d.orders} orders
+                    </p>
+                    <p className="text-sm font-semibold text-primary">{inr(d.revenue)}</p>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-quaternary">
+                    <div
+                      className="h-full rounded-full bg-brand-solid"
+                      style={{ width: `${Math.round((d.revenue / maxDay) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Recent orders
-        </Typography>
-        <Link href="/admin/orders">
-          <Button size="small">Full history</Button>
-        </Link>
-      </Box>
+        <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+          <h2 className="text-md font-semibold text-primary">Top products (by revenue)</h2>
+          {topProducts.length === 0 ? (
+            <p className="mt-2 text-sm text-tertiary">No sales yet.</p>
+          ) : (
+            <ul className="mt-1">
+              {topProducts.map((p, i) => (
+                <li
+                  key={p.name}
+                  className="flex items-center justify-between gap-2 border-b border-secondary py-2 last:border-0"
+                >
+                  <p className="min-w-0 truncate text-sm font-semibold text-primary">
+                    {i + 1}. {p.name}
+                    <span className="ml-1.5 font-normal text-tertiary">{p.qty} sold</span>
+                  </p>
+                  <p className="shrink-0 text-sm font-semibold text-primary">{inr(p.revenue)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h2 className="mt-4 text-md font-semibold text-primary">Top retailers (by purchases)</h2>
+          {topRetailers.length === 0 ? (
+            <p className="mt-2 text-sm text-tertiary">No sales yet.</p>
+          ) : (
+            <ul className="mt-1">
+              {topRetailers.map((r) => (
+                <li key={r.name} className="flex items-center justify-between gap-2 py-1.5">
+                  <p className="min-w-0 truncate text-sm text-secondary">
+                    {r.name}
+                    <span className="ml-1.5 text-tertiary">
+                      {r.orders} orders
+                      {r.balance > 0.004 && ` · owes ${inr(r.balance)}`}
+                    </span>
+                  </p>
+                  <p className="shrink-0 text-sm font-semibold text-primary">{inr(r.revenue)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h2 className="text-md font-semibold text-primary">Recent orders</h2>
+        <Button size="sm" color="link-color" href="/admin/orders">
+          Full reports
+        </Button>
+      </div>
 
       {recentOrders.length === 0 ? (
-        <Card
-          variant="outlined"
-          sx={{ p: 4, textAlign: "center", borderRadius: 1.5 }}
-        >
-          <Typography color="text.secondary">No orders yet.</Typography>
-        </Card>
+        <p className="rounded-xl bg-primary p-6 text-center text-sm text-tertiary ring-1 ring-secondary">
+          No orders yet.
+        </p>
       ) : (
-        recentOrders.map((o) => (
-          <Link
-            key={o.id}
-            href={`/admin/orders/${o.id}`}
-            style={{ textDecoration: "none" }}
-          >
-            <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 1, p: 2 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+        <ul className="flex flex-col gap-1.5">
+          {recentOrders.map((o) => (
+            <li key={o.id}>
+              <Link
+                href={`/admin/orders/${o.id}`}
+                className="flex items-center justify-between gap-2 rounded-xl bg-primary p-3.5 shadow-xs ring-1 ring-secondary outline-focus-ring transition-colors hover:bg-primary_hover focus-visible:outline-2"
               >
-                <Box>
-                  <Typography sx={{ fontWeight: 600 }}>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-primary">
                     {o.vendorName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {formatDateStr(o.windowDate)} · {o.itemCount} items ·{" "}
-                    {inr(o.total)}
-                  </Typography>
-                </Box>
-                <Chip
-                  label={ORDER_STATUS_LABELS[o.status]}
-                  color={ORDER_STATUS_COLORS[o.status] as never}
-                  size="small"
-                />
-              </Box>
-            </Card>
-          </Link>
-        ))
+                  </span>
+                  <span className="mt-0.5 block text-sm text-tertiary">
+                    {formatDateStr(o.windowDate)} · {o.itemCount} items · {inr(o.total)}
+                  </span>
+                </span>
+                <Badge size="sm" type="pill-color" color={STATUS_BADGE[o.status]}>
+                  {ORDER_STATUS_LABELS[o.status]}
+                </Badge>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
-    </Box>
+    </div>
   );
 }

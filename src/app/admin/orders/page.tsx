@@ -1,26 +1,56 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, transactions, users } from "@/db/schema";
-import OrdersClient from "./OrdersClient";
+import type { Tier } from "@/db/schema";
+import { TIERS } from "@/lib/format";
+import ReportsClient from "./ReportsClient";
 
-export const metadata = { title: "History" };
+export const metadata = { title: "Reports" };
 
 const ORDER_LIMIT = 200;
-const TXN_LIMIT = 100;
+const TXN_LIMIT = 200;
 
-export default async function AdminHistoryPage(props: {
-  searchParams: Promise<{ date?: string }>;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDate(v: string | undefined): string | null {
+  return v && DATE_RE.test(v) ? v : null;
+}
+
+export default async function AdminReportsPage(props: {
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    retailers?: string;
+    tiers?: string;
+    tab?: string;
+  }>;
 }) {
-  const { date } = await props.searchParams;
-  const dateFilter =
-    date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  const sp = await props.searchParams;
+  const from = parseDate(sp.from);
+  const to = parseDate(sp.to);
+  const retailerIds = (sp.retailers ?? "")
+    .split(",")
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+  const tiers = (sp.tiers ?? "")
+    .split(",")
+    .filter((t): t is Tier => (TIERS as string[]).includes(t));
+  const tab = sp.tab === "outstanding" ? "outstanding" : "orders";
 
-  // History shows billed orders only — unbilled (PLACED) ones live in Billing.
-  const where = dateFilter
-    ? sql`${orders.windowDate} = ${dateFilter} and ${orders.status} <> 'PLACED'`
-    : sql`${orders.status} <> 'PLACED'`;
+  // Retailers for the tag filter (small table).
+  const retailers = await db
+    .select({ id: users.id, businessName: users.businessName, tier: users.tier })
+    .from(users)
+    .where(eq(users.role, "VENDOR"))
+    .orderBy(users.businessName);
 
-  // Latest orders across ALL windows (capped — fast, no N+1).
+  // Orders: billed only — unbilled (PLACED) ones live in Billing.
+  const orderConds = [sql`${orders.status} <> 'PLACED'`];
+  if (from) orderConds.push(sql`${orders.windowDate} >= ${from}`);
+  if (to) orderConds.push(sql`${orders.windowDate} <= ${to}`);
+  if (retailerIds.length > 0) orderConds.push(inArray(orders.vendorId, retailerIds));
+  if (tiers.length > 0) orderConds.push(inArray(users.tier, tiers));
+
   const rows = await db
     .select({
       id: orders.id,
@@ -35,7 +65,7 @@ export default async function AdminHistoryPage(props: {
     .from(orders)
     .innerJoin(users, eq(users.id, orders.vendorId))
     .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
-    .where(where)
+    .where(and(...orderConds))
     .groupBy(
       orders.id,
       orders.status,
@@ -49,7 +79,13 @@ export default async function AdminHistoryPage(props: {
 
   const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
 
-  // Money trail: latest ledger entries across all retailers.
+  // Outstanding / money trail: same date-range + retailer filters apply here too.
+  const txnConds = [];
+  if (from) txnConds.push(gte(transactions.createdAt, new Date(`${from}T00:00:00Z`)));
+  if (to) txnConds.push(lt(transactions.createdAt, new Date(`${to}T00:00:00Z`)));
+  if (retailerIds.length > 0) txnConds.push(inArray(transactions.vendorId, retailerIds));
+  if (tiers.length > 0) txnConds.push(inArray(users.tier, tiers));
+
   const txns = await db
     .select({
       id: transactions.id,
@@ -62,23 +98,28 @@ export default async function AdminHistoryPage(props: {
     })
     .from(transactions)
     .innerJoin(users, eq(users.id, transactions.vendorId))
+    .where(txnConds.length > 0 ? and(...txnConds) : undefined)
     .orderBy(desc(transactions.createdAt))
     .limit(TXN_LIMIT);
 
   return (
-    <OrdersClient
-      windowDate={dateFilter}
+    <ReportsClient
+      initialTab={tab}
+      from={from}
+      to={to}
+      retailerIds={retailerIds}
+      tiers={tiers}
+      retailers={retailers}
       grandTotal={grandTotal}
       truncated={rows.length >= ORDER_LIMIT}
+      txnsTruncated={txns.length >= TXN_LIMIT}
       rows={rows.map((o) => ({
         id: o.id,
         status: o.status,
         tier: o.tier,
         windowDate: o.windowDate,
         placedAt:
-          o.placedAt instanceof Date
-            ? o.placedAt.toISOString()
-            : String(o.placedAt),
+          o.placedAt instanceof Date ? o.placedAt.toISOString() : String(o.placedAt),
         vendorName: o.vendorName,
         total: Number(o.total),
         itemCount: o.itemCount,
@@ -90,9 +131,7 @@ export default async function AdminHistoryPage(props: {
         note: t.note,
         orderId: t.orderId,
         createdAt:
-          t.createdAt instanceof Date
-            ? t.createdAt.toISOString()
-            : String(t.createdAt),
+          t.createdAt instanceof Date ? t.createdAt.toISOString() : String(t.createdAt),
         vendorName: t.vendorName,
       }))}
     />

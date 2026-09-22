@@ -1,38 +1,16 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  FormControlLabel,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Snackbar,
-  Alert,
-  Switch,
-  Tab,
-  Tabs,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { Add, Edit, Delete, Visibility, VisibilityOff } from "@mui/icons-material";
-import { useMemo, useState, useTransition } from "react";
-import { useMediaQuery, useTheme } from "@mui/material";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Edit01, Eye, EyeOff, Plus, Trash01 } from "@untitledui/icons";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { Select } from "@/components/base/select/select";
+import { Toggle } from "@/components/base/toggle/toggle";
+import { Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { Tab, TabList, Tabs } from "@/components/application/tabs/tabs";
 import type { Category, Unit } from "@/db/schema";
 import { CATEGORIES, CATEGORY_LABELS, UNITS, UNIT_LABELS, inr } from "@/lib/format";
 import {
@@ -41,6 +19,7 @@ import {
   deleteProduct,
   type ProductInput,
 } from "@/lib/actions/admin";
+import { cx } from "@/utils/cx";
 
 type Row = {
   id: number;
@@ -64,25 +43,43 @@ const EMPTY: ProductInput = {
   active: true,
 };
 
+function toEditing(p: Row): ProductInput {
+  return {
+    id: p.id,
+    name: p.name,
+    nameMr: p.nameMr ?? "",
+    emoji: p.emoji ?? "",
+    category: p.category,
+    unit: p.unit,
+    pricePerUnit: p.pricePerUnit,
+    description: p.description ?? "",
+    active: p.active,
+  };
+}
+
 export default function ProductsClient({ products }: { products: Row[] }) {
   const router = useRouter();
-  const muiTheme = useTheme();
-  const isDesktop = useMediaQuery(muiTheme.breakpoints.up("md"));
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<ProductInput | null>(null);
-  const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<"ALL" | Category>("ALL");
   const [active, setActive] = useState("ALL");
   const [sort, setSort] = useState("name");
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = products.filter(
       (p) =>
         (cat === "ALL" || p.category === cat) &&
-        (active === "ALL" ||
-          (active === "ACTIVE" ? p.active : !p.active)) &&
+        (active === "ALL" || (active === "ACTIVE" ? p.active : !p.active)) &&
         (q === "" ||
           p.name.toLowerCase().includes(q) ||
           (p.nameMr ?? "").includes(query.trim())),
@@ -101,328 +98,333 @@ export default function ProductsClient({ products }: { products: Row[] }) {
       const res = await saveProduct(editing);
       if (res.ok) {
         setEditing(null);
-        setToast({ msg: "Product saved.", severity: "success" });
+        setToast({ msg: "Product saved.", ok: true });
         router.refresh();
       } else {
-        setToast({ msg: res.error ?? "Save failed.", severity: "error" });
+        setToast({ msg: res.error ?? "Save failed.", ok: false });
       }
     });
   }
 
+  function doDelete(p: Row) {
+    startTransition(async () => {
+      const res = await deleteProduct(p.id);
+      setDeleting(null);
+      setToast(
+        res.ok
+          ? { msg: "Product deleted.", ok: true }
+          : { msg: res.error ?? "Delete failed.", ok: false },
+      );
+      router.refresh();
+    });
+  }
+
+  function flipActive(p: Row) {
+    startTransition(async () => {
+      await toggleProduct(p.id, !p.active);
+      router.refresh();
+    });
+  }
+
+  const editAction = (p: Row) => (
+    <>
+      <button
+        type="button"
+        aria-label={`Edit ${p.name}`}
+        onClick={() => setEditing(toEditing(p))}
+        className="rounded-md p-2 text-fg-quaternary outline-focus-ring transition-colors hover:bg-primary_hover hover:text-fg-secondary_hover focus-visible:outline-2"
+      >
+        <Edit01 className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label={p.active ? `Hide ${p.name}` : `Show ${p.name}`}
+        onClick={() => flipActive(p)}
+        className="rounded-md p-2 text-fg-quaternary outline-focus-ring transition-colors hover:bg-primary_hover hover:text-fg-secondary_hover focus-visible:outline-2"
+      >
+        {p.active ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+      </button>
+      <button
+        type="button"
+        aria-label={`Delete ${p.name}`}
+        onClick={() => setDeleting(p)}
+        className="rounded-md p-2 text-fg-quaternary outline-focus-ring transition-colors hover:bg-error-primary hover:text-error-primary_hover focus-visible:outline-2"
+      >
+        <Trash01 className="size-4" />
+      </button>
+    </>
+  );
+
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Products
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setEditing({ ...EMPTY })}
-        >
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-md font-semibold text-primary">Products ({visible.length})</h2>
+        <Button size="md" color="primary" iconLeading={Plus} onClick={() => setEditing({ ...EMPTY })}>
           Add product
         </Button>
-      </Box>
+      </div>
 
-      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
-        <TextField
-          size="small"
-          label="Search products"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 160 }}
-        />
-        <FormControl size="small" sx={{ minWidth: 110 }}>
-          <InputLabel>Status</InputLabel>
-          <Select label="Status" value={active} onChange={(e) => setActive(e.target.value)}>
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="HIDDEN">Hidden</MenuItem>
+      <div className="flex flex-wrap gap-2">
+        <div className="min-w-40 flex-1">
+          <Input
+            size="md"
+            aria-label="Search products"
+            placeholder="Search products"
+            value={query}
+            onChange={(v: string) => setQuery(v)}
+          />
+        </div>
+        <div className="w-32">
+          <Select
+            size="md"
+            aria-label="Status"
+            items={[
+              { id: "ALL", label: "All" },
+              { id: "ACTIVE", label: "Active" },
+              { id: "HIDDEN", label: "Hidden" },
+            ]}
+            selectedKey={active}
+            onSelectionChange={(k) => setActive(String(k))}
+          >
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
           </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Sort</InputLabel>
-          <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <MenuItem value="name">Name A–Z</MenuItem>
-            <MenuItem value="price-desc">Price ↓</MenuItem>
-            <MenuItem value="price-asc">Price ↑</MenuItem>
+        </div>
+        <div className="w-32">
+          <Select
+            size="md"
+            aria-label="Sort"
+            items={[
+              { id: "name", label: "Name A–Z" },
+              { id: "price-desc", label: "Price ↓" },
+              { id: "price-asc", label: "Price ↑" },
+            ]}
+            selectedKey={sort}
+            onSelectionChange={(k) => setSort(String(k))}
+          >
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
           </Select>
-        </FormControl>
-      </Box>
+        </div>
+      </div>
 
-      <Tabs
-        value={cat}
-        onChange={(_, v) => setCat(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ mb: 2, "& .MuiTab-root": { minHeight: 44 } }}
-      >
-        <Tab value="ALL" label="All" />
-        {CATEGORIES.map((c) => (
-          <Tab key={c} value={c} label={CATEGORY_LABELS[c]} />
-        ))}
+      <Tabs selectedKey={cat} onSelectionChange={(k) => setCat(k as "ALL" | Category)}>
+        <TabList type="underline" size="sm">
+          <Tab id="ALL" label="All" />
+          {CATEGORIES.map((c) => (
+            <Tab key={c} id={c} label={CATEGORY_LABELS[c]} />
+          ))}
+        </TabList>
       </Tabs>
 
-      {/* Mobile: cards */}
-      {!isDesktop && (
-        <Box>
-          {visible.map((p) => (
-            <Card
-              key={p.id}
-              variant="outlined"
-              sx={{ borderRadius: 1.5, mb: 1, p: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}
-            >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 1,
-                  display: "grid",
-                  placeItems: "center",
-                  bgcolor: "action.hover",
-                  fontSize: 26,
-                  flexShrink: 0,
-                }}
+      {visible.length === 0 ? (
+        <EmptyState size="md">
+          <EmptyState.FeaturedIcon color="gray" />
+          <EmptyState.Title>No products match</EmptyState.Title>
+          <EmptyState.Description>Add one, or clear the search.</EmptyState.Description>
+        </EmptyState>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="overflow-x-auto rounded-xl bg-primary shadow-xs ring-1 ring-secondary max-md:hidden">
+            <table className="w-full min-w-160 text-sm">
+              <thead>
+                <tr className="bg-secondary text-left text-xs text-quaternary">
+                  {["Name", "Category", "Unit", "Price", "Status", ""].map((h) => (
+                    <th key={h} className="px-4 py-2.5 font-semibold first:pl-6 last:pr-6">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((p) => (
+                  <tr key={p.id} className="border-t border-secondary">
+                    <td className="px-4 py-3 first:pl-6">
+                      <p className="font-semibold text-primary">
+                        {p.emoji} {p.name}
+                      </p>
+                      <p className="text-xs text-tertiary">{p.nameMr ?? "—"}</p>
+                    </td>
+                    <td className="px-4 py-3 text-tertiary">{CATEGORY_LABELS[p.category]}</td>
+                    <td className="px-4 py-3 text-tertiary">{UNIT_LABELS[p.unit]}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary">
+                      {inr(p.pricePerUnit)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button type="button" onClick={() => flipActive(p)} className="cursor-pointer outline-focus-ring focus-visible:outline-2">
+                        <Badge size="sm" type="pill-color" color={p.active ? "success" : "gray"}>
+                          {p.active ? "Active" : "Hidden"}
+                        </Badge>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 last:pr-6">
+                      <span className="flex justify-end gap-0.5">{editAction(p)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile cards */}
+          <ul className="flex flex-col gap-1.5 md:hidden">
+            {visible.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-2.5 rounded-xl bg-primary p-3 shadow-xs ring-1 ring-secondary"
               >
-                {p.emoji ?? "🥬"}
-              </Box>
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600 }} noWrap>
-                  {p.nameMr ? `${p.nameMr} · ${p.name}` : p.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {CATEGORY_LABELS[p.category]} · {inr(p.pricePerUnit)}/{UNIT_LABELS[p.unit]}
-                </Typography>
-              </Box>
-              <IconButton
-                size="small"
-                aria-label={`Edit ${p.name}`}
-                onClick={() =>
-                  setEditing({
-                    id: p.id,
-                    name: p.name,
-                    nameMr: p.nameMr ?? "",
-                    emoji: p.emoji ?? "",
-                    category: p.category,
-                    unit: p.unit,
-                    pricePerUnit: p.pricePerUnit,
-                    description: p.description ?? "",
-                    active: p.active,
-                  })
-                }
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                aria-label={`Toggle ${p.name}`}
-                onClick={() =>
-                  startTransition(async () => {
-                    await toggleProduct(p.id, !p.active);
-                    router.refresh();
-                  })
-                }
-              >
-                {p.active ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
-              </IconButton>
-              <IconButton
-                size="small"
-                color="error"
-                aria-label={`Delete ${p.name}`}
-                onClick={() => {
-                  if (!confirm(`Delete "${p.name}"? Past orders keep their records.`)) return;
-                  startTransition(async () => {
-                    const res = await deleteProduct(p.id);
-                    if (!res.ok) {
-                      setToast({ msg: res.error ?? "Delete failed.", severity: "error" });
-                    } else {
-                      setToast({ msg: "Product deleted.", severity: "success" });
-                    }
-                    router.refresh();
-                  });
-                }}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Card>
-          ))}
-        </Box>
+                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-secondary text-2xl">
+                  {p.emoji ?? "🥬"}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-primary">
+                    {p.nameMr ? `${p.nameMr} · ${p.name}` : p.name}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-tertiary">
+                    {CATEGORY_LABELS[p.category]} · {inr(p.pricePerUnit)}/{UNIT_LABELS[p.unit]}
+                  </span>
+                </span>
+                <span className="flex shrink-0 gap-0.5">{editAction(p)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
-      {/* Desktop: table */}
-      {isDesktop && (
-      <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Unit</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visible.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {p.emoji} {p.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {p.nameMr ?? "—"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{CATEGORY_LABELS[p.category]}</TableCell>
-                  <TableCell>{UNIT_LABELS[p.unit]}</TableCell>
-                  <TableCell align="right">{inr(p.pricePerUnit)}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={p.active ? "Active" : "Hidden"}
-                      color={p.active ? "success" : "default"}
-                      onClick={() =>
-                        startTransition(async () => {
-                          await toggleProduct(p.id, !p.active);
-                          router.refresh();
-                        })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      aria-label={`Edit ${p.name}`}
-                      onClick={() =>
-                        setEditing({
-                          id: p.id,
-                          name: p.name,
-                          nameMr: p.nameMr ?? "",
-                          emoji: p.emoji ?? "",
-                          category: p.category,
-                          unit: p.unit,
-                          pricePerUnit: p.pricePerUnit,
-                          description: p.description ?? "",
-                          active: p.active,
-                        })
-                      }
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={`Delete ${p.name}`}
-                      onClick={() => {
-                        if (!confirm(`Delete "${p.name}"? Past orders keep their records.`)) return;
-                        startTransition(async () => {
-                          const res = await deleteProduct(p.id);
-                          if (!res.ok) {
-                            setToast({ msg: res.error ?? "Delete failed.", severity: "error" });
-                          } else {
-                            setToast({ msg: "Product deleted.", severity: "success" });
-                          }
-                          router.refresh();
-                        });
-                      }}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
-      )}
-
-      <Dialog open={editing !== null} onClose={() => setEditing(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing?.id ? "Edit product" : "Add product"}</DialogTitle>
-        <DialogContent sx={{ display: "grid", gap: 2, pt: 1 }}>
-          <TextField
-            label="Name (English)"
-            value={editing?.name ?? ""}
-            onChange={(e) => setEditing((p) => (p ? { ...p, name: e.target.value } : p))}
-            required
-          />
-          <TextField
-            label="नाव (Marathi name)"
-            value={editing?.nameMr ?? ""}
-            onChange={(e) => setEditing((p) => (p ? { ...p, nameMr: e.target.value } : p))}
-          />
-          <TextField
-            label="Emoji icon"
-            placeholder="🥬"
-            value={editing?.emoji ?? ""}
-            onChange={(e) => setEditing((p) => (p ? { ...p, emoji: e.target.value } : p))}
-          />
-          <TextField
-            select
-            label="Category"
-            value={editing?.category ?? "LOCAL_VEG"}
-            onChange={(e) =>
-              setEditing((p) => (p ? { ...p, category: e.target.value as Category } : p))
-            }
-          >
-            {CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Unit"
-            value={editing?.unit ?? "KG"}
-            onChange={(e) => setEditing((p) => (p ? { ...p, unit: e.target.value as Unit } : p))}
-          >
-            {UNITS.map((u) => (
-              <MenuItem key={u} value={u}>
-                {UNIT_LABELS[u]}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Price per unit (₹)"
-            type="number"
-            slotProps={{ htmlInput: { step: "0.01", min: 0 } }}
-            value={editing?.pricePerUnit ?? 0}
-            onChange={(e) =>
-              setEditing((p) =>
-                p ? { ...p, pricePerUnit: Number(e.target.value) } : p,
-              )
-            }
-          />
-          <TextField
-            label="Description (optional)"
-            value={editing?.description ?? ""}
-            onChange={(e) => setEditing((p) => (p ? { ...p, description: e.target.value } : p))}
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={editing?.active ?? true}
-                onChange={(e) => setEditing((p) => (p ? { ...p, active: e.target.checked } : p))}
+      {/* Add / edit */}
+      <ModalOverlay isOpen={editing !== null} onOpenChange={(o) => !o && setEditing(null)} isDismissable>
+        <Modal className="sm:max-w-lg">
+          <div className="max-h-[inherit] overflow-y-auto p-6">
+            <h2 className="text-md font-semibold text-primary">
+              {editing?.id ? "Edit product" : "Add product"}
+            </h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Input
+                size="md"
+                label="Name (English)"
+                value={editing?.name ?? ""}
+                onChange={(v: string) => setEditing((p) => (p ? { ...p, name: v } : p))}
               />
-            }
-            label="Visible to vendors"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditing(null)}>Cancel</Button>
-          <Button variant="contained" onClick={submit} disabled={pending}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <Input
+                size="md"
+                label="नाव (Marathi)"
+                value={editing?.nameMr ?? ""}
+                onChange={(v: string) => setEditing((p) => (p ? { ...p, nameMr: v } : p))}
+              />
+              <Input
+                size="md"
+                label="Emoji icon"
+                placeholder="🥬"
+                value={editing?.emoji ?? ""}
+                onChange={(v: string) => setEditing((p) => (p ? { ...p, emoji: v } : p))}
+              />
+              <div>
+                <Select
+                  size="md"
+                  label="Category"
+                  items={CATEGORIES.map((c) => ({ id: c, label: CATEGORY_LABELS[c] }))}
+                  selectedKey={editing?.category ?? "LOCAL_VEG"}
+                  onSelectionChange={(k) =>
+                    setEditing((p) => (p ? { ...p, category: String(k) as Category } : p))
+                  }
+                >
+                  {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+                </Select>
+              </div>
+              <div>
+                <Select
+                  size="md"
+                  label="Unit"
+                  items={UNITS.map((u) => ({ id: u, label: UNIT_LABELS[u] }))}
+                  selectedKey={editing?.unit ?? "KG"}
+                  onSelectionChange={(k) =>
+                    setEditing((p) => (p ? { ...p, unit: String(k) as Unit } : p))
+                  }
+                >
+                  {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+                </Select>
+              </div>
+              <Input
+                size="md"
+                label="Price per unit (₹)"
+                type="number"
+                value={editing ? String(editing.pricePerUnit) : "0"}
+                onChange={(v: string) =>
+                  setEditing((p) => (p ? { ...p, pricePerUnit: Number(v) || 0 } : p))
+                }
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  size="md"
+                  label="Description (optional)"
+                  value={editing?.description ?? ""}
+                  onChange={(v: string) => setEditing((p) => (p ? { ...p, description: v } : p))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Toggle
+                  size="sm"
+                  label="Visible to vendors"
+                  isSelected={editing?.active ?? true}
+                  onChange={(v) => setEditing((p) => (p ? { ...p, active: v } : p))}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button size="md" color="secondary" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button size="md" color="primary" isLoading={pending} onClick={submit}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      </ModalOverlay>
 
-      <Snackbar open={toast !== null} autoHideDuration={3000} onClose={() => setToast(null)}>
-        <Alert severity={toast?.severity ?? "success"} onClose={() => setToast(null)}>
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+      {/* Delete confirm */}
+      <ModalOverlay isOpen={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)} isDismissable>
+        <Modal className="sm:max-w-md">
+          <div className="p-6">
+            <h2 className="text-md font-semibold text-primary">Delete “{deleting?.name}”?</h2>
+            <p className="mt-1 text-sm text-tertiary">Past orders keep their records.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button size="md" color="secondary" onClick={() => setDeleting(null)}>
+                Keep
+              </Button>
+              <Button
+                size="md"
+                color="primary-destructive"
+                isLoading={pending}
+                onClick={() => deleting && doDelete(deleting)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      </ModalOverlay>
+
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed bottom-20 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl p-3.5 text-sm font-medium shadow-lg ring-1 ring-inset lg:bottom-8",
+            toast.ok
+              ? "bg-success-solid text-white ring-transparent"
+              : "bg-error-solid text-white ring-transparent",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span>{toast.msg}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="cursor-pointer rounded-md px-2 py-0.5 outline-focus-ring hover:bg-white/15 focus-visible:outline-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,28 +1,15 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Snackbar,
-  Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-  InputAdornment,
-} from "@mui/material";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
 import type { Unit } from "@/db/schema";
 import { UNIT_LABELS, inr } from "@/lib/format";
 import { adjustOrderItems, setOrderStatus } from "@/lib/actions/admin";
+import { cx } from "@/utils/cx";
 
 type EditorItem = {
   id: number;
@@ -34,6 +21,12 @@ type EditorItem = {
 };
 
 const STATUS_OPTIONS = ["PLACED", "CONFIRMED", "DELIVERED", "CANCELLED"] as const;
+const STATUS_LABEL: Record<(typeof STATUS_OPTIONS)[number], string> = {
+  PLACED: "Placed",
+  CONFIRMED: "Confirm",
+  DELIVERED: "Delivered (paid)",
+  CANCELLED: "Cancel order",
+};
 
 export default function OrderEditor({
   orderId,
@@ -54,7 +47,13 @@ export default function OrderEditor({
       items.map((i) => [i.id, String(i.confirmedQuantity ?? i.quantity)]),
     ),
   );
-  const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   function save() {
     // Compare against the effective current value (confirmed ?? ordered) so
@@ -71,10 +70,10 @@ export default function OrderEditor({
     startTransition(async () => {
       const res = await adjustOrderItems(orderId, note, changed);
       if (res.ok) {
-        setToast({ msg: "Adjustments saved. The vendor will see them.", severity: "success" });
+        setToast({ msg: "Adjustments saved. The vendor will see them.", ok: true });
         router.refresh();
       } else {
-        setToast({ msg: "Could not save adjustments.", severity: "error" });
+        setToast({ msg: "Could not save adjustments.", ok: false });
       }
     });
   }
@@ -83,7 +82,7 @@ export default function OrderEditor({
     startTransition(async () => {
       const res = await setOrderStatus(orderId, next);
       if (res.ok) {
-        setToast({ msg: `Order marked ${next.toLowerCase()}.`, severity: "success" });
+        setToast({ msg: `Order marked ${next.toLowerCase()}.`, ok: true });
         router.refresh();
       }
     });
@@ -100,129 +99,124 @@ export default function OrderEditor({
 
   return (
     <>
-      <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 2 }}>
-        <CardContent>
-          <Typography gutterBottom sx={{ fontWeight: 700 }}>
-            Items
-          </Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Ordered</TableCell>
-                  <TableCell align="right" sx={{ width: 130 }}>
-                    Supplied
-                  </TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((i) => {
-                  const q = Number(edits[i.id] ?? i.quantity);
-                  const changed = q !== i.quantity;
-                  return (
-                    <TableRow key={i.id}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          {i.name}
-                          {changed && (
-                            <Chip label="adjusted" size="small" color="warning" />
-                          )}
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {inr(i.unitPrice)} / {UNIT_LABELS[i.unit]}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        {i.quantity} {UNIT_LABELS[i.unit]}
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          value={edits[i.id] ?? ""}
-                          onChange={(e) =>
-                            setEdits((p) => ({ ...p, [i.id]: e.target.value.replace(/[^0-9.]/g, "") }))
-                          }
-                          size="small"
-                          slotProps={{
-                            htmlInput: { sx: { textAlign: "right", width: 80 } },
-                            input: {
-                              endAdornment: (
-                                <InputAdornment position="end" sx={{ "& p": { fontSize: 12 } }}>
-                                  {UNIT_LABELS[i.unit]}
-                                </InputAdornment>
-                              ),
-                            },
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">{inr(q * i.unitPrice)}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+      <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+        <h2 className="text-md font-semibold text-primary">Items</h2>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-130 text-sm">
+            <thead>
+              <tr className="text-left text-xs text-quaternary">
+                <th className="px-2 py-2 font-semibold">Product</th>
+                <th className="px-2 py-2 text-right font-semibold">Ordered</th>
+                <th className="w-36 px-2 py-2 text-right font-semibold">Supplied</th>
+                <th className="px-2 py-2 text-right font-semibold">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((i) => {
+                const q = Number(edits[i.id] ?? i.quantity);
+                const changed = q !== i.quantity;
+                return (
+                  <tr key={i.id} className="border-t border-secondary">
+                    <td className="px-2 py-2">
+                      <span className="flex flex-wrap items-center gap-1.5 font-medium text-primary">
+                        {i.name}
+                        {changed && (
+                          <Badge size="sm" type="pill-color" color="warning">
+                            adjusted
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="block text-xs text-tertiary">
+                        {inr(i.unitPrice)} / {UNIT_LABELS[i.unit]}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-right whitespace-nowrap text-tertiary">
+                      {i.quantity} {UNIT_LABELS[i.unit]}
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        size="sm"
+                        aria-label={`Supplied quantity for ${i.name}`}
+                        value={edits[i.id] ?? ""}
+                        onChange={(v: string) =>
+                          setEdits((p) => ({ ...p, [i.id]: v.replace(/[^0-9.]/g, "") }))
+                        }
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-right font-semibold text-primary">
+                      {inr(q * i.unitPrice)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-            <Typography sx={{ fontWeight: 700 }}>New total: {inr(newTotal)}</Typography>
-          </Box>
-          {newTotal !== originalTotal && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "right" }}>
+        <p className="mt-2 text-right text-sm font-semibold text-primary">
+          New total: {inr(newTotal)}
+        </p>
+        {newTotal !== originalTotal && (
+          <p className="block text-right text-xs text-tertiary">
             Current billed total: {inr(originalTotal)}
-          </Typography>
-          )}
+          </p>
+        )}
 
-          <TextField
-            fullWidth
-            multiline
-            rows={2}
+        <div className="mt-3">
+          <TextArea
             label="Note to vendor (stock shortfall, substitution, etc.)"
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            sx={{ mt: 2 }}
+            onChange={(v: string) => setNote(v)}
+            rows={2}
           />
+        </div>
 
-          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-            <Button variant="contained" onClick={save} disabled={pending}>
-              {pending ? "Saving…" : "Save adjustments"}
+        <div className="mt-3">
+          <Button size="md" color="primary" isLoading={pending} onClick={save}>
+            Save adjustments
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+        <h2 className="text-md font-semibold text-primary">Order status</h2>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {STATUS_OPTIONS.map((s) => (
+            <Button
+              key={s}
+              size="sm"
+              color={status === s ? "primary" : "secondary"}
+              isDisabled={pending}
+              onClick={() => setStatus(s)}
+            >
+              {STATUS_LABEL[s]}
             </Button>
-          </Box>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </section>
 
-      <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
-        <CardContent>
-          <Typography gutterBottom sx={{ fontWeight: 700 }}>
-            Order status
-          </Typography>
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            {STATUS_OPTIONS.map((s) => (
-              <Button
-                key={s}
-                size="small"
-                variant={status === s ? "contained" : "outlined"}
-                disabled={pending}
-                onClick={() => setStatus(s)}
-              >
-                {s === "PLACED"
-                  ? "Placed"
-                  : s === "CONFIRMED"
-                    ? "Confirm"
-                    : s === "DELIVERED"
-                      ? "Delivered (paid)"
-                      : "Cancel order"}
-              </Button>
-            ))}
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Snackbar open={toast !== null} autoHideDuration={4000} onClose={() => setToast(null)}>
-        <Alert severity={toast?.severity ?? "success"} onClose={() => setToast(null)}>
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed bottom-20 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl p-3.5 text-sm font-medium shadow-lg ring-1 ring-inset lg:bottom-8",
+            toast.ok
+              ? "bg-success-solid text-white ring-transparent"
+              : "bg-error-solid text-white ring-transparent",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span>{toast.msg}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="cursor-pointer rounded-md px-2 py-0.5 outline-focus-ring hover:bg-white/15 focus-visible:outline-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

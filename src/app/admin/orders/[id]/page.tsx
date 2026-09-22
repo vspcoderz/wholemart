@@ -2,17 +2,23 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, users } from "@/db/schema";
-import { Box, Button, Chip, Typography } from "@mui/material";
-import { ArrowBack, Download } from "@mui/icons-material";
-import Link from "next/link";
+import { ArrowLeft, Printer } from "@untitledui/icons";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
 import OrderEditor from "./OrderEditor";
 import {
-  ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
   formatDateStr,
 } from "@/lib/format";
 
 export const metadata = { title: "Order detail" };
+
+const STATUS_BADGE = {
+  PLACED: "blue",
+  CONFIRMED: "warning",
+  DELIVERED: "success",
+  CANCELLED: "gray",
+} as const;
 
 export default async function AdminOrderDetail(props: {
   params: Promise<{ id: string }>;
@@ -37,36 +43,36 @@ export default async function AdminOrderDetail(props: {
     .where(eq(orderItems.orderId, orderId));
 
   return (
-    <Box sx={{ maxWidth: 800 }}>
-      <Link href="/admin/orders">
-        <Button startIcon={<ArrowBack />} size="small" sx={{ mb: 2 }}>
+    <div className="mx-auto flex w-full max-w-200 flex-col gap-4">
+      <div>
+        <Button size="sm" color="link-gray" href="/admin/orders">
+          <ArrowLeft className="size-4" />
           All orders
         </Button>
-      </Link>
-
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          {row.vendor.businessName}
-        </Typography>
-        <Chip
-          label={ORDER_STATUS_LABELS[row.order.status]}
-          color={ORDER_STATUS_COLORS[row.order.status] as never}
-        />
-      </Box>
-      <Typography color="text.secondary" gutterBottom>
-        {formatDateStr(row.order.windowDate)} window · {row.vendor.phone ?? "no phone"} ·{" "}
-        {row.vendor.address ?? "no address"}
-      </Typography>
-
-      <Button
-        size="small"
-        startIcon={<Download />}
-        href={`/api/invoice/${orderId}`}
-        target="_blank"
-        sx={{ mb: 2 }}
-      >
-        Invoice PDF
-      </Button>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <h1 className="text-display-xs font-semibold text-primary">
+            {row.vendor.businessName}
+          </h1>
+          <Badge size="md" type="pill-color" color={STATUS_BADGE[row.order.status]}>
+            {ORDER_STATUS_LABELS[row.order.status]}
+          </Badge>
+        </div>
+        <p className="mt-1 text-sm text-tertiary">
+          {formatDateStr(row.order.windowDate)} window · {row.vendor.phone ?? "no phone"} ·{" "}
+          {row.vendor.address ?? "no address"}
+        </p>
+        <div className="mt-2">
+          <Button
+            size="sm"
+            color="secondary"
+            href={`/api/invoice/${orderId}`}
+            {...{ target: "_blank", rel: "noopener noreferrer" }}
+          >
+            <Printer className="size-4" />
+            Invoice PDF
+          </Button>
+        </div>
+      </div>
 
       <OrderEditor
         orderId={orderId}
@@ -81,6 +87,6 @@ export default async function AdminOrderDetail(props: {
           unitPrice: Number(i.unitPrice),
         }))}
       />
-    </Box>
+    </div>
   );
 }

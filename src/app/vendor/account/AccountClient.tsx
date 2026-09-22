@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  Paper,
-  Typography,
-} from "@mui/material";
 import { inr } from "@/lib/format";
 import { useLang } from "@/lib/i18n";
+import { TxnAmount, TxnBadge, VendorEmpty, txnDate } from "../transactions/TransactionClient";
+import { cx } from "@/utils/cx";
 
 type Txn = {
   id: number;
@@ -30,107 +24,52 @@ export default function AccountClient({
   txns: Txn[];
 }) {
   const { t } = useLang();
+  const owes = balance > 0.004;
 
   return (
-    <Box sx={{ pb: 2 }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-        {businessName}
-      </Typography>
+    <div className="pb-2">
+      <h1 className="mb-2 text-md font-semibold text-primary">{businessName}</h1>
 
-      <Card variant="outlined" sx={{ borderRadius: 1.5, mb: 2 }}>
-        <CardContent>
-          <Typography variant="caption" color="text.secondary">
-            {t("balanceOwed")}
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 700,
-              color: balance > 0.004 ? "warning.main" : "success.main",
-            }}
-          >
-            {inr(balance)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {balance > 0.004
-              ? "Pay on delivery or clear it with the supplier."
-              : t("paidToYou") + " — nothing due."}
-          </Typography>
-        </CardContent>
-      </Card>
+      <section className="mb-3 rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+        <p className="text-xs text-quaternary">{t("balanceOwed")}</p>
+        <p className={cx("mt-0.5 text-display-sm font-bold", owes ? "text-warning-primary" : "text-success-primary")}>
+          {inr(balance)}
+        </p>
+        <p className="mt-0.5 text-sm text-tertiary">
+          {owes ? "Pay on delivery or clear it with the supplier." : `${t("paidToYou")} — nothing due.`}
+        </p>
+      </section>
 
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-        {t("transactions")}
-      </Typography>
+      <h2 className="mb-2 text-md font-semibold text-primary">{t("transactions")}</h2>
 
       {txns.length === 0 ? (
-        <Paper
-          variant="outlined"
-          sx={{ p: 4, textAlign: "center", borderRadius: 1.5 }}
-        >
-          <Typography color="text.secondary">{t("noTransactions")}</Typography>
-        </Paper>
+        <VendorEmpty title={t("noTransactions")} />
       ) : (
-        txns.map((x) => (
-          <Paper
-            key={x.id}
-            variant="outlined"
-            sx={{ mb: 1, p: 1.5, borderRadius: 1.5 }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 1,
-              }}
+        <ul className="flex flex-col gap-1.5">
+          {txns.map((x) => (
+            <li
+              key={x.id}
+              className="rounded-xl bg-primary p-3.5 shadow-xs ring-1 ring-secondary"
             >
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600 }} noWrap>
-                  {x.note ?? (x.orderId ? `Order #${x.orderId}` : "—")}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {new Date(x.createdAt).toLocaleString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                  {x.orderId ? ` · #${x.orderId}` : ""}
-                </Typography>
-              </Box>
-              <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-                <Typography
-                  sx={{
-                    fontWeight: 700,
-                    color: x.amount >= 0 ? "warning.main" : "success.main",
-                  }}
-                >
-                  {x.amount >= 0 ? "+" : "−"}
-                  {inr(Math.abs(x.amount))}
-                </Typography>
-                <Chip
-                  size="small"
-                  label={
-                    x.type === "CHARGE"
-                      ? "Billed"
-                      : x.type === "PAYMENT"
-                        ? "Paid"
-                        : "Adjusted"
-                  }
-                  color={
-                    x.type === "CHARGE"
-                      ? "warning"
-                      : x.type === "PAYMENT"
-                        ? "success"
-                        : "info"
-                  }
-                />
-              </Box>
-            </Box>
-          </Paper>
-        ))
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-primary">
+                    {x.note ?? (x.orderId ? `Order #${x.orderId}` : "—")}
+                  </p>
+                  <p className="mt-0.5 text-sm text-tertiary">
+                    {txnDate(x.createdAt)}
+                    {x.orderId ? ` · #${x.orderId}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
+                  <TxnAmount amount={x.amount} />
+                  <TxnBadge type={x.type} />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
-    </Box>
+    </div>
   );
 }

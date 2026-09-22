@@ -1,71 +1,71 @@
-# Admin Overhaul — PLAN
+# UI Overhaul (Untitled UI) — PLAN
 
 ## Goal
-Reshape admin IA + vendor money visibility, per user request (2026-09-21):
-continuous ordering, History/Reports, Purchase, Statistics, Printing (bulk PDF),
-real Accounting with retailer balances + ledger, Settings absorbs Products/Retailers.
+Full MUI → Untitled UI React migration + admin overhaul (2026-09-22):
+Reports (Orders/Outstanding sub-nav), Billing workbench, Accounting mirror,
+billed-only Printing/Purchase, post-billing WhatsApp invoices.
 
-## Decisions
-- `users.balance` NUMERIC(10,2) default 0 = outstanding owed (positive = owes us).
-  Increased by CHARGE rows on billing finalize, decreased by PAYMENT rows.
-- New `transactions` table: vendorId FK cascade, type CHARGE|PAYMENT|ADJUSTMENT,
-  amount, orderId nullable, note, createdAt. Ledger = truth; balance = cached sum.
-- Ordering window: always OPEN. `getWindowState()` returns open:true,
-  windowDate = today (tz), closesAt = next midnight. Settings time fields stay
-  (harmless) but no longer gate anything; vendor saveOrder keeps its guard
-  (always passes).
-- Nav (7): Statistics `/admin` · History `/admin/orders` · Billing
-  `/admin/billing` · Purchase `/admin/purchase` (moved from manifest) ·
-  Printing `/admin/printing` · Accounting `/admin/accounting` ·
-  Settings `/admin/settings` (embeds Products + Retailers tabs).
-- `/admin/manifest` → redirect to `/admin/purchase`. `/admin/products`,
-  `/admin/vendors` → redirect to `/admin/settings?tab=…`.
-- Invoice PDF drawing extracted to `src/lib/invoice-pdf.ts`
-  (`drawInvoicePage(pdf, fonts, order, vendor, items)`); single + bulk routes share it.
-  Bulk: `/api/invoices/bulk?ids=1,2,3` — one PDF, each order starts on a fresh page.
-- Vendor: BottomNav Order|Cart|History|Account|Profile. `/vendor/account` shows
-  balance + ledger. `/vendor/orders` keeps list (label History via i18n).
-- Mobile admin: bottom nav = Home·History·Billing·Printing·More; More opens a
-  sheet with Purchase·Accounting·Settings·Sign out. Desktop drawer drops
-  "Vendor view", keeps Sign out.
-- Perf: billing page single items query (kill per-order N+1); history/printing
-  lists capped (200) with date filter; history poll 30s, billing 15s.
+## Decisions (locked with user)
+- Full MUI rip-out (not incremental). Default purple brand (not green).
+- Billed = CONFIRMED + DELIVERED everywhere. PLACED lives only in Billing.
+- Billing hides finalized by default + "Show billed" toggle for re-edit.
+- Post-finalize WhatsApp = wa.me deep-link (prefilled text) + PDF opened
+  alongside (can't attach PDFs via wa.me). Phone from users.phone.
+- Vendor PWA included in migration. 200-cap + "truncated" notice kept.
 
-## Files touched
-1. `src/db/schema.ts` — users.balance, transactions table + types.
-2. `scripts/setup.ts` — create transactions table, ALTER users ADD balance.
-3. `src/lib/window.ts` — always-open.
-4. `src/lib/invoice-pdf.ts` (NEW) — extracted invoice renderer.
-5. `src/app/api/invoice/[id]/route.ts` (EDIT) — use shared renderer.
-6. `src/app/api/invoices/bulk/route.ts` (NEW).
-7. `src/lib/actions/billing.ts` (EDIT) — ledger CHARGE + balance bump per vendor.
-8. `src/lib/actions/accounting.ts` (NEW) — recordPayment/recordAdjustment.
-9. `src/lib/actions/admin.ts` (EDIT) — revalidate /admin/settings, /admin/purchase.
-10. `src/app/admin/AdminShell.tsx` (REWRITE nav).
-11. `src/app/admin/page.tsx` + `DashboardClient.tsx` (REWRITE → Statistics).
-12. `src/app/admin/orders/page.tsx` + `OrdersClient.tsx` (→ History: all orders + ledger).
-13. `src/app/admin/manifest/` → `src/app/admin/purchase/` (git mv + retitle + revalidate paths).
-14. `src/app/admin/printing/page.tsx` + `PrintingClient.tsx` (NEW).
-15. `src/app/admin/accounting/page.tsx` + `AccountingClient.tsx` (NEW).
-16. `src/app/admin/settings/page.tsx` (EDIT — tabs embed Products/Vendors clients).
-17. `src/app/admin/products/page.tsx`, `src/app/admin/vendors/page.tsx` (→ redirects).
-18. `src/app/admin/vendors/VendorsClient.tsx` (EDIT — balance column).
-19. `src/components/BottomNav.tsx`, `src/lib/i18n.tsx` (vendor History/Account labels).
-20. `src/app/vendor/account/page.tsx` (NEW) + orders page tweak.
+## Foundation (done)
+- Tailwind v4.3 + @tailwindcss/postcss, styles/theme.css + typography.css
+  (official Untitled tokens), Inter via next/font, .dark-mode class toggle
+  in AppProviders. postcss.config.mjs, components.json.
+- ~60 vendored primitives: src/components/{base,application,foundations},
+  src/hooks, src/utils (eslint-ignored, do not edit).
+- MUI/Emotion uninstalled. src/theme.ts deleted.
 
-## Verification
-- `npm run db:setup` migrates live DB (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
-- `npx tsc --noEmit` clean; `npx eslint` on touched files clean.
-- Manual: finalize billing → balance rises + CHARGE visible in admin Accounting
-  and vendor Account; record payment → balance falls; bulk PDF has N order pages;
-  mobile shows More + sign out; ordering never shows closed.
+## Files rewritten (all Untitled, tsc+eslint clean, prod build green)
+1. `src/app/admin/AdminShell.tsx` — sidebar (Statistics·Reports[Orders·
+   Outstanding]·Billing·Purchase·Printing·Accounting·Settings) + mobile
+   bottom nav + More sheet. Active state incl. ?tab= via useSearchParams.
+2. `src/app/admin/orders/page.tsx` + `ReportsClient.tsx` (NEW, OrdersClient
+   deleted) — ?from&to&retailers&tiers&tab; date range applies to BOTH tabs;
+   retailer/rank tag multi-selects; per-row print; bulk print; Asia/Kolkata
+   txn dates; table desktop / cards mobile.
+3. `src/app/admin/billing/page.tsx` + `BillingClient.tsx` (BillingHeader
+   deleted) — pending-only default + show-billed toggle; selection/edits
+   re-sync on refresh (finalized drop out); confirm modal; post-finalize
+   WhatsApp panel (wa.me + invoice PDF, no-phone badge); invoice hidden for
+   PLACED; sticky finalize bar; phone passed from server.
+4. `src/lib/actions/billing.ts` — all finalize writes in db.transaction.
+5. `src/app/admin/accounting/AccountingClient.tsx` — same UX language;
+   search incl. phone, rank multi, owing/settled, sorts; note input in
+   modal (no more hardcoded notes); key-reset modal; Reports cross-link.
+6. `src/app/admin/printing/page.tsx` + `PrintingClient.tsx` — billed-only +
+   ?from&to&retailers&tiers; selection sync; per-row print; bulk bar with
+   page estimate + >100 warning; bulk route 400s non-billed ids.
+7. `src/app/admin/purchase/page.tsx` — CONFIRMED/DELIVERED only (was
+   <>CANCELLED). `ManifestClient.tsx` rewritten (PrintButton folded in).
+8. `src/app/admin/DashboardClient.tsx`, `orders/[id]/page.tsx` +
+   `OrderEditor.tsx`, settings (`SettingsTabs/Form`), `ProductsClient`,
+   `VendorsClient`, login, all loading.tsx, vendor PWA (BottomNav,
+   WindowBanner, layout, Catalog, Cart, Orders, Transactions, Account,
+   Profile — behavior identical, reskinned).
+9. Icon-as-prop rule: NEVER pass @untitledui/icons components as props
+   (iconLeading etc.) from server components — render as children instead.
+   (Caught live: order detail page SSR hole.)
 
-## Status: done (pending live-DB migration + manual pass)
-- `npx tsc --noEmit` clean. `npx eslint src/` clean (0 errors, 0 warnings).
-- `npx next build` compiles + typechecks; prerender blocked only by no local DB
-  (ECONNREFUSED :5433, same for old pages — environmental, not a code error).
-- `npm run db:setup` (adds balance + transactions) must run where the live DB is
-  reachable — runs automatically in `npm run build` on deploy.
-- Manual check still open: finalize billing → balance/CHARGE in Accounting +
-  vendor Account; record payment; bulk PDF page-per-order; mobile More + sign
-  out; ordering never closed.
+## Verification (done 2026-09-22, local DB + dev server)
+- `npm run build` exit 0, all routes. `tsc` + `eslint src/` clean.
+- Live curl-as-admin: /admin, /orders, /billing, /accounting, /printing,
+  /purchase, /settings, /orders/10 all 200 with content markers.
+- Live curl-as-vendor: /vendor, /cart, /transactions, /profile 200 + nav.
+- Seeded PLACED order (Sunrise Hotel, 2026-09-21 window): billing shows it,
+  totals ₹280+₹125=₹405 correct.
+- Bulk guard: non-billed ids → 400 "Only billed orders…".
+- Ring tokens: only ring-{primary,secondary,tertiary,error*,brand*} exist;
+  success/warning rings must use ring-utility-green/yellow-200.
+
+## Status: done, pending user manual pass
+- Manual QA open: finalize billing → CHARGE/ledger → WhatsApp panel sends;
+  collect/charge in Accounting; bulk PDF page-per-order; mobile More sheet;
+  vendor order → billing → delivery flow on a real phone.
+- Dev scratch data: PLACED order #11 (Sunrise Hotel, 2026-09-21) left in
+  local DB for the user to finalize and test with.

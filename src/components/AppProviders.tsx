@@ -1,10 +1,6 @@
 "use client";
 
-import { ThemeProvider } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
-import { createContext, useContext, useState } from "react";
-import { lightTheme, darkTheme } from "@/theme";
+import { createContext, useContext, useEffect, useState } from "react";
 
 type Mode = "light" | "dark";
 
@@ -17,18 +13,17 @@ export const useColorMode = () => useContext(ModeContext);
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("light");
-  const theme = mode === "light" ? lightTheme : darkTheme;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark-mode", mode === "dark");
+    document.documentElement.style.colorScheme = mode;
+  }, [mode]);
 
   return (
     <ModeContext.Provider
       value={{ mode, toggle: () => setMode((m) => (m === "light" ? "dark" : "light")) }}
     >
-      <AppRouterCacheProvider options={{ key: "mui" }}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {children}
-        </ThemeProvider>
-      </AppRouterCacheProvider>
+      {children}
     </ModeContext.Provider>
   );
 }

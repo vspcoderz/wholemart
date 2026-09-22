@@ -1,17 +1,16 @@
 "use client";
 
-import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
-import { Home, ShoppingCart, ReceiptLong, Person } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
+import { FileCheck02, HomeLine, ShoppingCart02, User01 } from "@untitledui/icons";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang, type StringKey } from "@/lib/i18n";
-import Badge from "@mui/material/Badge";
+import { cx } from "@/utils/cx";
 
-const items: { key: StringKey; value: string; icon: typeof Home; cart?: boolean }[] = [
-  { key: "order", value: "/vendor", icon: Home },
-  { key: "cart", value: "/vendor/cart", icon: ShoppingCart, cart: true },
-  { key: "transactions", value: "/vendor/transactions", icon: ReceiptLong },
-  { key: "profile", value: "/vendor/profile", icon: Person },
+const items: { key: StringKey; value: string; Icon: typeof HomeLine; cart?: boolean }[] = [
+  { key: "order", value: "/vendor", Icon: HomeLine },
+  { key: "cart", value: "/vendor/cart", Icon: ShoppingCart02, cart: true },
+  { key: "transactions", value: "/vendor/transactions", Icon: FileCheck02 },
+  { key: "profile", value: "/vendor/profile", Icon: User01 },
 ];
 
 export default function BottomNav() {
@@ -22,40 +21,37 @@ export default function BottomNav() {
   const cartCount = cart.filter((i) => i.quantity > 0).length;
 
   return (
-    <Paper
-      sx={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        pb: "env(safe-area-inset-bottom)",
-        zIndex: 1000,
-      }}
-      elevation={3}
+    <nav
+      aria-label="Vendor"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-secondary bg-primary pb-[env(safe-area-inset-bottom)]"
     >
-      <BottomNavigation
-        value={pathname}
-        onChange={(_, v: string) => router.push(v)}
-        showLabels
-      >
-        {items.map((it) => (
-          <BottomNavigationAction
-            key={it.value}
-            label={t(it.key)}
-            value={it.value}
-            icon={
-              it.cart ? (
-                <Badge badgeContent={cartCount} color="primary">
-                  <it.icon />
-                </Badge>
-              ) : (
-                <it.icon />
-              )
-            }
-            sx={{ minHeight: 56, minWidth: 0, px: 0 }}
-          />
-        ))}
-      </BottomNavigation>
-    </Paper>
+      <div className="grid grid-cols-4">
+        {items.map((it) => {
+          const active = pathname === it.value;
+          return (
+            <button
+              key={it.value}
+              type="button"
+              onClick={() => router.push(it.value)}
+              aria-current={active ? "page" : undefined}
+              className={cx(
+                "relative flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-semibold outline-focus-ring transition-colors focus-visible:outline-2",
+                active ? "text-brand-secondary" : "text-quaternary",
+              )}
+            >
+              <span className="relative">
+                <it.Icon className="size-5" />
+                {it.cart && cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-solid px-1 text-[10px] font-bold text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </span>
+              {t(it.key)}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

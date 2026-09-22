@@ -1,20 +1,14 @@
-import { Box, Card, Skeleton } from "@mui/material";
-
 export default function OrdersLoading() {
   return (
-    <Box>
-      <Skeleton variant="text" width={160} height={40} sx={{ mb: 1 }} />
-      <Skeleton variant="text" width="60%" sx={{ mb: 2 }} />
+    <div className="flex flex-col gap-2" aria-label="Loading">
+      <div className="h-8 w-40 animate-pulse rounded-md bg-tertiary" />
+      <div className="mb-2 h-5 w-3/5 animate-pulse rounded-md bg-tertiary" />
       {[0, 1, 2, 3].map((i) => (
-        <Card
-          key={i}
-          variant="outlined"
-          sx={{ borderRadius: 1.5, mb: 1, p: 2 }}
-        >
-          <Skeleton variant="text" width="40%" />
-          <Skeleton variant="text" width="25%" />
-        </Card>
+        <div key={i} className="rounded-xl bg-primary p-4 ring-1 ring-secondary">
+          <div className="h-5 w-2/5 animate-pulse rounded-md bg-tertiary" />
+          <div className="mt-2 h-4 w-1/4 animate-pulse rounded-md bg-tertiary" />
+        </div>
       ))}
-    </Box>
+    </div>
   );
 }

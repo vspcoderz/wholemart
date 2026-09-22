@@ -1,16 +1,7 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { PictureAsPdf } from "@mui/icons-material";
-import PrintButton from "./PrintButton";
+import { Printer } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
 import { UNIT_LABELS, formatDateStr } from "@/lib/format";
 import type { Unit } from "@/db/schema";
 
@@ -41,73 +32,59 @@ export default function ManifestClient({
   vendorItems: VendorOrder[];
 }) {
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 2,
-          mb: 1,
-        }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Purchase — what to buy for {formatDateStr(windowDate)}
-        </Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <form>
-            <TextField
-              name="date"
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-display-xs font-semibold text-primary">
+            Purchase — what to buy for {formatDateStr(windowDate)}
+          </h1>
+          <p className="mt-1 text-sm text-tertiary">
+            Billed orders only · unbilled orders don&apos;t count until finalized in Billing.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <form className="flex items-center gap-2">
+            <input
               type="date"
-              size="small"
+              name="date"
+              aria-label="Purchase date"
               defaultValue={windowDate}
-              sx={{ width: 180 }}
+              className="h-9 w-44 rounded-lg bg-primary px-2 text-sm text-primary shadow-xs ring-1 ring-primary outline-focus-ring ring-inset focus-visible:outline-2"
             />
-            <Button type="submit" variant="contained" sx={{ ml: 1 }}>
+            <Button size="sm" color="secondary" type="submit">
               View
             </Button>
           </form>
           <Button
-            variant="outlined"
+            size="sm"
+            color="secondary"
             href={`/api/manifest/pdf?date=${windowDate}`}
-            target="_blank"
-            startIcon={<PictureAsPdf />}
+            iconLeading={Printer}
+            {...{ target: "_blank", rel: "noopener noreferrer" }}
           >
             PDF
           </Button>
-          <PrintButton />
-        </Box>
-      </Box>
+          <Button size="sm" color="secondary" iconLeading={Printer} onClick={() => window.print()}>
+            Print
+          </Button>
+        </div>
+      </div>
 
-      <Card
-        variant="outlined"
-        sx={{ borderRadius: 1.5, mb: 3, printColorAdjust: "exact" }}
-      >
-        <CardContent>
-          <Typography gutterBottom sx={{ fontWeight: 700 }}>
-            What to buy / prepare ({productTotals.length} products)
-          </Typography>
-          {productTotals.length === 0 ? (
-            <Typography color="text.secondary">
-              No orders for this window.
-            </Typography>
-          ) : (
-            <Box
-              component="table"
-              sx={{ width: "100%", borderCollapse: "collapse" }}
-            >
+      <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+        <h2 className="text-md font-semibold text-primary">
+          What to buy / prepare ({productTotals.length} products)
+        </h2>
+        {productTotals.length === 0 ? (
+          <p className="mt-2 text-sm text-tertiary">
+            No billed orders for this window — finalize them in Billing first.
+          </p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-120 text-sm">
               <thead>
-                <tr>
+                <tr className="border-b-2 border-secondary text-left text-xs text-quaternary">
                   {["Product", "Total needed", "Vendors"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        borderBottom: "2px solid",
-                        borderColor: "divider",
-                        padding: 8,
-                      }}
-                    >
+                    <th key={h} className="px-2 py-2 font-semibold">
                       {h}
                     </th>
                   ))}
@@ -117,67 +94,44 @@ export default function ManifestClient({
                 {productTotals.map((p) => (
                   <tr
                     key={`${p.productId ?? "deleted"}-${p.name}-${p.unit}`}
+                    className="border-b border-secondary last:border-0"
                   >
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <strong>{p.name}</strong>
-                    </td>
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
+                    <td className="px-2 py-2 font-semibold text-primary">{p.name}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-tertiary">
                       {p.needed} {UNIT_LABELS[p.unit as Unit]}
                     </td>
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      {p.vendors}
-                    </td>
+                    <td className="px-2 py-2 text-tertiary">{p.vendors}</td>
                   </tr>
                 ))}
               </tbody>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+            </table>
+          </div>
+        )}
+      </section>
 
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
+      <h2 className="text-md font-semibold text-primary">
         Per-retailer delivery list ({vendorItems.length})
-      </Typography>
-      {vendorItems.map((o) => (
-        <Card
-          key={o.orderId}
-          variant="outlined"
-          sx={{ borderRadius: 1.5, mb: 1, printColorAdjust: "exact" }}
-        >
-          <CardContent>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography sx={{ fontWeight: 700 }}>{o.vendorName}</Typography>
-              <Chip label={o.status} size="small" />
-            </Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {vendorItems.map((o) => (
+          <li key={o.orderId} className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-primary">{o.vendorName}</p>
+              <span className="text-xs text-quaternary">{o.status}</span>
+            </div>
+            <p className="mt-0.5 text-sm text-tertiary">
               {o.address ?? "no address"} · {o.phone ?? "no phone"}
-            </Typography>
-            {o.items.map((it, idx) => (
-              <Typography key={idx} variant="body2">
-                • {it.name}: {it.qty} {UNIT_LABELS[it.unit as Unit]}
-              </Typography>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-    </Box>
+            </p>
+            <ul className="mt-1.5 flex flex-col gap-0.5">
+              {o.items.map((it, idx) => (
+                <li key={idx} className="text-sm text-secondary">
+                  • {it.name}: {it.qty} {UNIT_LABELS[it.unit as Unit]}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

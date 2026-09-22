@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  Box,
-  Card,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  InputAdornment,
-} from "@mui/material";
-import { Email, Lock, AgricultureRounded } from "@mui/icons-material";
 import { useActionState } from "react";
+import { AlertCircle, Lock01, Mail01, ShoppingBag02 } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
 import { APP_NAME } from "@/lib/brand";
 import { loginAction, type LoginState } from "./action";
 
@@ -21,81 +14,52 @@ export default function LoginForm() {
   );
 
   return (
-    <Card
-      elevation={0}
-      sx={(t) => ({
-        width: "100%",
-        maxWidth: 400,
-        p: { xs: 3, sm: 4 },
-        border: `1px solid ${t.palette.divider}`,
-        borderRadius: 2,
-      })}
-    >
-      <Box sx={{ textAlign: "center", mb: 3 }}>
-        <AgricultureRounded
-          sx={(t) => ({ fontSize: 44, color: t.palette.primary.main })}
-        />
-        <Typography variant="h5" sx={{ fontWeight: 700, mt: 1 }}>
-          {APP_NAME}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
+    <div className="w-full max-w-100 rounded-2xl bg-primary p-6 shadow-lg ring-1 ring-secondary sm:p-8">
+      <div className="mb-6 text-center">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-solid text-white shadow-xs">
+          <ShoppingBag02 className="size-6" />
+        </span>
+        <h1 className="mt-3 text-display-xs font-semibold text-primary">{APP_NAME}</h1>
+        <p className="mt-1 text-sm text-tertiary">
           Wholesale ordering for retailers, hotels &amp; vendors
-        </Typography>
-      </Box>
+        </p>
+      </div>
 
       {state?.error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <p
+          role="alert"
+          className="mb-4 flex items-start gap-2 rounded-lg bg-error-primary p-3 text-sm font-medium text-error-primary ring-1 ring-error_subtle ring-inset"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
           {state.error}
-        </Alert>
+        </p>
       )}
 
-      <Box component="form" action={formAction} noValidate>
-        <TextField
+      <form action={formAction} noValidate className="flex flex-col gap-4">
+        <Input
+          size="lg"
           label="Email"
           name="email"
           type="email"
-          fullWidth
-          required
+          isRequired
           autoComplete="email"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Email fontSize="small" />
-                </InputAdornment>
-              ),
-            },
-          }}
-          sx={{ mb: 2 }}
+          icon={Mail01}
+          placeholder="you@shop.com"
         />
-        <TextField
+        <Input
+          size="lg"
           label="Password"
           name="password"
           type="password"
-          fullWidth
-          required
+          isRequired
           autoComplete="current-password"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Lock fontSize="small" />
-                </InputAdornment>
-              ),
-            },
-          }}
-          sx={{ mb: 3 }}
+          icon={Lock01}
+          placeholder="••••••••"
         />
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          size="large"
-          disabled={pending}
-        >
+        <Button size="lg" color="primary" type="submit" isLoading={pending} showTextWhileLoading className="w-full">
           {pending ? "Signing in…" : "Sign in"}
         </Button>
-      </Box>
-    </Card>
+      </form>
+    </div>
   );
 }

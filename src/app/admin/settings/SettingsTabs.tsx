@@ -1,7 +1,6 @@
 "use client";
 
-import { Box, Tab, Tabs, Typography } from "@mui/material";
-import { useState } from "react";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 
 export default function SettingsTabs({
   initialTab,
@@ -14,27 +13,19 @@ export default function SettingsTabs({
   products: React.ReactNode;
   retailers: React.ReactNode;
 }) {
-  const [tab, setTab] = useState(initialTab);
-
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
-        Settings
-      </Typography>
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ mb: 2 }}
-      >
-        <Tab value="general" label="General" />
-        <Tab value="products" label="Products" />
-        <Tab value="retailers" label="Retailers" />
+    <div className="flex flex-col gap-4">
+      <h1 className="text-display-xs font-semibold text-primary">Settings</h1>
+      <Tabs defaultSelectedKey={initialTab}>
+        <TabList type="underline" size="md">
+          <Tab id="general" label="General" />
+          <Tab id="products" label="Products" />
+          <Tab id="retailers" label="Retailers" />
+        </TabList>
+        <TabPanel id="general">{general}</TabPanel>
+        <TabPanel id="products">{products}</TabPanel>
+        <TabPanel id="retailers">{retailers}</TabPanel>
       </Tabs>
-      {tab === "general" && general}
-      {tab === "products" && products}
-      {tab === "retailers" && retailers}
-    </Box>
+    </div>
   );
 }

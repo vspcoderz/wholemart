@@ -1,29 +1,19 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  Chip,
-  IconButton,
-  InputAdornment,
-  Paper,
-  TextField,
-  Typography,
-  Tabs,
-  Tab,
-  Snackbar,
-  Alert,
-  Typography as T,
-} from "@mui/material";
-import { Add, Remove, Search, ShoppingCart } from "@mui/icons-material";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Minus, Plus, SearchLg, ShoppingCart02 } from "@untitledui/icons";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { Tab, TabList, Tabs } from "@/components/application/tabs/tabs";
 import type { Category, Unit } from "@/db/schema";
 import { CATEGORIES, UNIT_LABELS, UNIT_STEPS } from "@/lib/format";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang, type StringKey } from "@/lib/i18n";
 import { saveOrder } from "@/lib/actions/orders";
+import { cx } from "@/utils/cx";
 
 export type CatalogProduct = {
   id: number;
@@ -42,9 +32,9 @@ const CAT_KEY: Record<Category, StringKey> = {
 };
 
 const TILE_BG: Record<Category, string> = {
-  LOCAL_VEG: "#e4efe2",
-  ENGLISH_VEG: "#e2ecf4",
-  FRUITS: "#f6ead9",
+  LOCAL_VEG: "bg-utility-green-100",
+  ENGLISH_VEG: "bg-utility-sky-100",
+  FRUITS: "bg-utility-orange-100",
 };
 
 function stepFor(unit: Unit) {
@@ -68,7 +58,13 @@ export default function CatalogClient({
   const [tab, setTab] = useState<"ALL" | Category>("ALL");
   const [search, setSearch] = useState("");
   const [pending, startTransition] = useTransition();
-  const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const tt = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(tt);
+  }, [toast]);
 
   const qtyOf = (id: number) => items.find((i) => i.productId === id)?.quantity ?? 0;
 
@@ -77,9 +73,7 @@ export default function CatalogClient({
     return catalog.filter(
       (p) =>
         (tab === "ALL" || p.category === tab) &&
-        (!q ||
-          p.name.toLowerCase().includes(q) ||
-          (p.nameMr ?? "").includes(search.trim())),
+        (!q || p.name.toLowerCase().includes(q) || (p.nameMr ?? "").includes(search.trim())),
     );
   }, [catalog, tab, search]);
 
@@ -101,10 +95,10 @@ export default function CatalogClient({
       const res = await saveOrder(items.filter((i) => i.quantity > 0));
       if (res.ok) {
         clear();
-        setToast({ msg: t("orderSaved"), severity: "success" });
+        setToast({ msg: t("orderSaved"), ok: true });
         router.refresh();
       } else {
-        setToast({ msg: res.error, severity: "error" });
+        setToast({ msg: res.error, ok: false });
       }
     });
   }
@@ -113,230 +107,179 @@ export default function CatalogClient({
     lang === "mr" && p.nameMr ? p.nameMr : p.name;
 
   return (
-    <Box sx={{ pb: 2 }}>
+    <div className="pb-2">
       {/* Header: title + cart CTA */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {t("newOrder")}
-        </Typography>
+      <div className="mb-3 flex items-center justify-between">
+        <h1 className="text-md font-semibold text-primary">{t("newOrder")}</h1>
         <Button
-          variant={totalItems > 0 ? "contained" : "outlined"}
-          size="small"
-          startIcon={<ShoppingCart />}
+          size="sm"
+          color={totalItems > 0 ? "primary" : "secondary"}
+          iconLeading={ShoppingCart02}
           onClick={() => router.push("/vendor/cart")}
         >
-          {t("cart")}{totalItems > 0 ? ` (${totalItems})` : ""}
+          {t("cart")}
+          {totalItems > 0 ? ` (${totalItems})` : ""}
         </Button>
-      </Box>
+      </div>
 
-      <TextField
-        fullWidth
-        placeholder={t("search")}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-            sx: { borderRadius: 1.5 },
-          },
-        }}
-        sx={{ mb: 1 }}
-      />
+      <div className="mb-2">
+        <Input
+          size="md"
+          aria-label={t("search")}
+          placeholder={t("search")}
+          icon={SearchLg}
+          value={search}
+          onChange={(v: string) => setSearch(v)}
+        />
+      </div>
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ mb: 1.5, "& .MuiTab-root": { minHeight: 44 } }}
-      >
-        <Tab value="ALL" label={t("all")} />
-        {CATEGORIES.map((c) => (
-          <Tab key={c} value={c} label={t(CAT_KEY[c])} />
-        ))}
+      <Tabs selectedKey={tab} onSelectionChange={(k) => setTab(k as "ALL" | Category)}>
+        <TabList type="underline" size="sm">
+          <Tab id="ALL" label={t("all")} />
+          {CATEGORIES.map((c) => (
+            <Tab key={c} id={c} label={t(CAT_KEY[c])} />
+          ))}
+        </TabList>
       </Tabs>
 
       {filtered.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: "center", mt: 2, borderRadius: 1.5 }}>
-          <Typography color="text.secondary">{t("noProducts")}</Typography>
-        </Paper>
+        <EmptyState size="md">
+          <EmptyState.FeaturedIcon color="gray" />
+          <EmptyState.Title>{t("noProducts")}</EmptyState.Title>
+        </EmptyState>
       ) : (
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+        <div className="mt-3 grid grid-cols-2 gap-2">
           {filtered.map((p) => {
             const q = qtyOf(p.id);
             const selected = q > 0;
             return (
-              <Card
+              <div
                 key={p.id}
-                variant="outlined"
+                role="button"
+                tabIndex={windowOpen ? 0 : -1}
+                aria-pressed={selected}
+                aria-disabled={!windowOpen}
                 onClick={() => quickAdd(p)}
-                sx={{
-                  borderRadius: 1.5,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                  cursor: windowOpen ? "pointer" : "default",
-                  userSelect: "none",
-                  ...(selected
-                    ? { borderColor: "primary.main", borderWidth: 2 }
-                    : {}),
-                  "&:active": windowOpen ? { transform: "scale(0.98)" } : {},
-                  transition: "transform 80ms",
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    quickAdd(p);
+                  }
                 }}
+                className={cx(
+                  "flex cursor-pointer flex-col overflow-hidden rounded-xl bg-primary shadow-xs ring-2 outline-focus-ring ring-inset transition-transform focus-visible:outline-2 active:scale-[0.98]",
+                  selected ? "ring-brand" : "ring-secondary",
+                  !windowOpen && "cursor-default active:scale-100",
+                )}
               >
                 {/* Emoji / image tile — distinct per product */}
-                <Box
-                  sx={{
-                    height: 72,
-                    display: "grid",
-                    placeItems: "center",
-                    bgcolor: TILE_BG[p.category],
-                    position: "relative",
-                  }}
-                >
+                <div className={cx("relative grid h-18 place-items-center", TILE_BG[p.category])}>
                   {p.imageUrl ? (
-                    <Box
-                      component="img"
-                      src={p.imageUrl}
-                      alt={p.name}
-                      sx={{ height: "100%", width: "100%", objectFit: "cover" }}
-                    />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
                   ) : (
-                    <Box component="span" sx={{ fontSize: 44, lineHeight: 1 }}>
-                      {p.emoji ?? "🥬"}
-                    </Box>
+                    <span className="text-4xl leading-none">{p.emoji ?? "🥬"}</span>
                   )}
                   {selected && (
-                    <Chip
-                      size="small"
-                      color="primary"
-                      label={`${q} ${UNIT_LABELS[p.unit]}`}
-                      sx={{
-                        position: "absolute",
-                        top: 6,
-                        right: 6,
-                        height: 22,
-                        fontSize: 12,
-                      }}
-                    />
+                    <Badge
+                      size="sm"
+                      type="pill-color"
+                      color="brand"
+                      className="absolute top-1.5 right-1.5"
+                    >
+                      {q} {UNIT_LABELS[p.unit]}
+                    </Badge>
                   )}
-                </Box>
+                </div>
 
-                <Box sx={{ p: 1, flexGrow: 1, display: "flex", flexDirection: "column" }}>
-                  <Typography
-                    sx={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}
-                    noWrap
-                  >
+                <div className="flex flex-1 flex-col p-2">
+                  <p className="truncate text-sm leading-tight font-semibold text-primary">
                     {displayName(p)}
-                  </Typography>
+                  </p>
                   {lang === "mr" && p.nameMr && (
-                    <Typography variant="caption" color="text.secondary" noWrap>
-                      {p.name}
-                    </Typography>
+                    <p className="truncate text-xs text-tertiary">{p.name}</p>
                   )}
-                  <Box
-                    sx={{
-                      mt: 0.5,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
+                  <div
+                    className="mt-1 flex items-center justify-between"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Typography variant="body2" color="text.secondary">
-                      {UNIT_LABELS[p.unit]}
-                    </Typography>
+                    <span className="text-sm text-tertiary">{UNIT_LABELS[p.unit]}</span>
                     {selected && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                        <IconButton
-                          size="small"
+                      <span className="flex items-center gap-0.5">
+                        <button
+                          type="button"
                           aria-label={`Remove ${p.name}`}
                           onClick={() => change(p, q - stepFor(p.unit))}
-                          sx={{ minHeight: 30, minWidth: 30 }}
+                          className="grid size-9 cursor-pointer place-items-center rounded-lg text-fg-quaternary outline-focus-ring transition-colors hover:bg-primary_hover focus-visible:outline-2"
                         >
-                          <Remove fontSize="small" />
-                        </IconButton>
-                        <T sx={{ minWidth: 22, textAlign: "center", fontWeight: 700, fontSize: 14 }}>
+                          <Minus className="size-4" />
+                        </button>
+                        <span className="min-w-5.5 text-center text-sm font-bold text-primary">
                           {q}
-                        </T>
-                        <IconButton
-                          size="small"
+                        </span>
+                        <button
+                          type="button"
                           aria-label={`Add ${p.name}`}
                           onClick={() => change(p, q + stepFor(p.unit))}
-                          sx={{
-                            minHeight: 30,
-                            minWidth: 30,
-                            bgcolor: "primary.main",
-                            color: "primary.contrastText",
-                            "&:hover": { bgcolor: "primary.dark" },
-                          }}
+                          className="grid size-9 cursor-pointer place-items-center rounded-lg bg-brand-solid text-white outline-focus-ring transition-colors hover:bg-brand-solid_hover focus-visible:outline-2"
                         >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Box>
+                          <Plus className="size-4" />
+                        </button>
+                      </span>
                     )}
-                  </Box>
-                </Box>
-              </Card>
+                  </div>
+                </div>
+              </div>
             );
           })}
-        </Box>
+        </div>
       )}
 
       {/* Sticky review bar */}
       {windowOpen && totalItems > 0 && (
-        <Paper
-          sx={{
-            position: "sticky",
-            bottom: 68,
-            mt: 2,
-            p: 1.5,
-            borderRadius: 1.5,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            zIndex: 900,
-          }}
-          elevation={4}
-        >
-          <Typography sx={{ fontWeight: 600 }}>
+        <div className="sticky bottom-2 z-20 mt-2 flex items-center justify-between gap-2 rounded-xl bg-primary p-3 shadow-lg ring-1 ring-secondary">
+          <p className="text-sm font-semibold text-primary">
             {totalItems} {t("itemsSelected")}
-          </Typography>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button variant="outlined" onClick={() => router.push("/vendor/cart")}>
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" color="secondary" onClick={() => router.push("/vendor/cart")}>
               {t("reviewOrder")}
             </Button>
-            <Button variant="contained" disabled={pending} onClick={placeOrUpdate}>
-              {pending ? t("saving") : t("saveOrder")}
+            <Button size="sm" color="primary" isLoading={pending} onClick={placeOrUpdate}>
+              {t("saveOrder")}
             </Button>
-          </Box>
-        </Paper>
+          </div>
+        </div>
       )}
 
       {!windowOpen && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
+        <p className="mt-2 rounded-lg bg-warning-primary p-3 text-sm font-medium text-warning-primary ring-1 ring-utility-yellow-200 ring-inset">
           {t("windowClosed")}
-        </Alert>
+        </p>
       )}
 
-      <Snackbar
-        open={toast !== null}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          severity={toast?.severity ?? "success"}
-          onClose={() => setToast(null)}
-          sx={{ width: "100%" }}
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed bottom-20 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl p-3.5 text-sm font-medium shadow-lg ring-1 ring-inset",
+            toast.ok
+              ? "bg-success-solid text-white ring-transparent"
+              : "bg-error-solid text-white ring-transparent",
+          )}
         >
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <div className="flex items-center justify-between gap-2">
+            <span>{toast.msg}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="cursor-pointer rounded-md px-2 py-0.5 outline-focus-ring hover:bg-white/15 focus-visible:outline-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored Untitled UI primitives (upstream style, do not edit):
+    "src/components/base/**",
+    "src/components/application/**",
+    "src/components/foundations/**",
+    "src/components/shared-assets/**",
+    "src/hooks/**",
+    "src/utils/**",
   ]),
 ]);
 

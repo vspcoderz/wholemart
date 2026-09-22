@@ -1,27 +1,15 @@
-import { Box, Skeleton } from "@mui/material";
-
 export default function AdminLoading() {
   return (
-    <Box>
-      <Skeleton variant="text" width="40%" height={40} sx={{ mb: 2 }} />
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+    <div className="flex flex-col gap-2" aria-label="Loading">
+      <div className="h-8 w-2/5 animate-pulse rounded-md bg-tertiary" />
+      <div className="mb-2 flex gap-2">
         {[0, 1, 2].map((i) => (
-          <Skeleton
-            key={i}
-            variant="rounded"
-            height={84}
-            sx={{ flexGrow: 1, borderRadius: 1.5 }}
-          />
+          <div key={i} className="h-21 flex-1 animate-pulse rounded-xl bg-tertiary" />
         ))}
-      </Box>
+      </div>
       {[0, 1, 2, 3].map((i) => (
-        <Skeleton
-          key={i}
-          variant="rounded"
-          height={64}
-          sx={{ mb: 1, borderRadius: 1.5 }}
-        />
+        <div key={i} className="h-16 animate-pulse rounded-xl bg-tertiary" />
       ))}
-    </Box>
+    </div>
   );
 }

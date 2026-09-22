@@ -1,18 +1,10 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  MenuItem,
-  Snackbar,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/base/buttons/button";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { Select } from "@/components/base/select/select";
 import { updateSettings } from "@/lib/actions/admin";
 
 const TIMEZONES = [
@@ -43,16 +35,17 @@ export default function SettingsForm({
   };
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [start, setStart] = useState(minutesToHHMM(initial.windowStartMinutes));
   const [end, setEnd] = useState(minutesToHHMM(initial.windowEndMinutes));
   const [timezone, setTimezone] = useState(initial.timezone);
   const [language, setLanguage] = useState<"mr" | "en">(initial.language);
   const [deliveryNote, setDeliveryNote] = useState(initial.deliveryNote);
-  const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  function save() {
-    startTransition(async () => {
+  async function save() {
+    setPending(true);
+    try {
       const res = await updateSettings({
         windowStartMinutes: hhmmToMinutes(start),
         windowEndMinutes: hhmmToMinutes(end),
@@ -62,97 +55,113 @@ export default function SettingsForm({
       });
       setToast(
         res.ok
-          ? { msg: "Settings saved.", severity: "success" }
-          : { msg: res.error ?? "Save failed.", severity: "error" },
+          ? { msg: "Settings saved.", ok: true }
+          : { msg: res.error ?? "Save failed.", ok: false },
       );
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
-    <Box sx={{ maxWidth: 640 }}>
-      <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
-        <CardContent sx={{ display: "grid", gap: 3 }}>
-          <Box>
-            <Typography gutterBottom sx={{ fontWeight: 700 }}>
-              Ordering window
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Shops can order from 12:00 AM to 10:00 PM. 10 PM – midnight is
-              closed for deliveries, then a new order day starts at midnight.
-            </Typography>
-            <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
-              <TextField
-                label="Opens at"
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                fullWidth
-                slotProps={{ htmlInput: { step: 300 } }}
-              />
-              <TextField
-                label="Closes at (next day)"
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                fullWidth
-                slotProps={{ htmlInput: { step: 300 } }}
-              />
-            </Box>
-          </Box>
+    <div className="max-w-160">
+      <section className="rounded-xl bg-primary p-4 shadow-xs ring-1 ring-secondary sm:p-6">
+        <div className="flex flex-col gap-5">
+          <div>
+            <h2 className="text-md font-semibold text-primary">Ordering window</h2>
+            <p className="mt-0.5 text-sm text-tertiary">
+              Shops can order from 12:00 AM to 10:00 PM. 10 PM – midnight is closed for
+              deliveries, then a new order day starts at midnight.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <div className="flex-1">
+                <label
+                  htmlFor="window-start"
+                  className="mb-1.5 block text-sm font-medium text-secondary"
+                >
+                  Opens at
+                </label>
+                <input
+                  id="window-start"
+                  type="time"
+                  step={300}
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  className="h-10 w-full rounded-lg bg-primary px-3 text-sm text-primary shadow-xs ring-1 ring-primary outline-focus-ring ring-inset focus-visible:outline-2"
+                />
+              </div>
+              <div className="flex-1">
+                <label
+                  htmlFor="window-end"
+                  className="mb-1.5 block text-sm font-medium text-secondary"
+                >
+                  Closes at (next day)
+                </label>
+                <input
+                  id="window-end"
+                  type="time"
+                  step={300}
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                  className="h-10 w-full rounded-lg bg-primary px-3 text-sm text-primary shadow-xs ring-1 ring-primary outline-focus-ring ring-inset focus-visible:outline-2"
+                />
+              </div>
+            </div>
+          </div>
 
-          <TextField
-            select
+          <Select
+            size="md"
             label="Timezone"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
+            items={TIMEZONES.map((t) => ({ id: t, label: t }))}
+            selectedKey={timezone}
+            onSelectionChange={(k) => setTimezone(String(k))}
           >
-            {TIMEZONES.map((t) => (
-              <MenuItem key={t} value={t}>
-                {t}
-              </MenuItem>
-            ))}
-          </TextField>
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+          </Select>
 
-          <TextField
-            select
+          <Select
+            size="md"
             label="Vendor app language (default)"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as "mr" | "en")}
-            helperText="Marathi is the default; vendors can still switch in their profile."
+            hint="Marathi is the default; vendors can still switch in their profile."
+            items={[
+              { id: "mr", label: "मराठी (Marathi)" },
+              { id: "en", label: "English" },
+            ]}
+            selectedKey={language}
+            onSelectionChange={(k) => setLanguage(String(k) as "mr" | "en")}
           >
-            <MenuItem value="mr">मराठी (Marathi)</MenuItem>
-            <MenuItem value="en">English</MenuItem>
-          </TextField>
+            {(item) => <Select.Item key={item.id} id={item.id} label={item.label} />}
+          </Select>
 
-          <TextField
+          <TextArea
             label="Delivery note shown to vendors"
-            multiline
-            rows={2}
-            value={deliveryNote}
-            onChange={(e) => setDeliveryNote(e.target.value)}
             placeholder="e.g. Deliveries happen between 6 AM and 9 AM"
+            value={deliveryNote}
+            onChange={(v: string) => setDeliveryNote(v)}
+            rows={2}
           />
 
-          <Box>
-            <Button variant="contained" onClick={save} disabled={pending}>
-              {pending ? "Saving…" : "Save settings"}
+          <div>
+            <Button size="md" color="primary" isLoading={pending} onClick={save}>
+              Save settings
             </Button>
-          </Box>
+            {toast && (
+              <p
+                role="status"
+                className={toast.ok ? "mt-2 text-sm text-success-primary" : "mt-2 text-sm text-error-primary"}
+              >
+                {toast.msg}
+              </p>
+            )}
+          </div>
 
-          <Alert severity="info">
-            The 10 PM – midnight gap is delivery time: vendors can&apos;t order,
-            and a new day starts at midnight. Orders already placed keep the
-            date they were placed under.
-          </Alert>
-        </CardContent>
-      </Card>
-
-      <Snackbar open={toast !== null} autoHideDuration={3000} onClose={() => setToast(null)}>
-        <Alert severity={toast?.severity ?? "success"} onClose={() => setToast(null)}>
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <p className="rounded-lg bg-brand-primary p-3 text-sm text-brand-secondary ring-1 ring-brand ring-inset">
+            The 10 PM – midnight gap is delivery time: vendors can&apos;t order, and a new day
+            starts at midnight. Orders already placed keep the date they were placed under.
+          </p>
+        </div>
+      </section>
+    </div>
   );
 }

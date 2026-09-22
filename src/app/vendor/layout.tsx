@@ -4,7 +4,6 @@ import { getSettings, getWindowState } from "@/lib/window";
 import { db } from "@/db";
 import { and, eq } from "drizzle-orm";
 import { orderItems, orders } from "@/db/schema";
-import { Box, Container } from "@mui/material";
 import WindowBanner from "@/components/WindowBanner";
 import BottomNav from "@/components/BottomNav";
 import { CartProvider } from "@/components/cart/CartProvider";
@@ -52,8 +51,8 @@ export default async function VendorLayout({
   return (
     <LangProvider defaultLang={cfg.language}>
       <CartProvider initialItems={initialItems}>
-        <Box sx={{ pb: 9, minHeight: "100dvh" }}>
-          <Container maxWidth="sm" sx={{ pt: 2, px: { xs: 1.5, sm: 2 } }}>
+        <div className="min-h-dvh pb-20">
+          <div className="mx-auto w-full max-w-xl px-3 pt-2 sm:px-4">
             <WindowBanner
               open={win.open}
               closingSoon={win.closingSoon}
@@ -64,11 +63,11 @@ export default async function VendorLayout({
               deliveryNote={cfg.deliveryNote}
               windowDate={win.windowDate}
             />
-          </Container>
-          <Container maxWidth="sm" sx={{ px: { xs: 1.5, sm: 2 }, pt: 1 }}>
+          </div>
+          <div className="mx-auto w-full max-w-xl px-3 pt-1 sm:px-4">
             {children}
-          </Container>
-        </Box>
+          </div>
+        </div>
         <BottomNav />
       </CartProvider>
     </LangProvider>

@@ -1,9 +1,9 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { formatDateStr, formatMinutes } from "@/lib/format";
 import { useLang } from "@/lib/i18n";
+import { cx } from "@/utils/cx";
 
 type Props = {
   open: boolean;
@@ -38,51 +38,58 @@ export default function WindowBanner(props: Props) {
   const countdown = useCountdown(props.open ? props.closesAt : props.opensAt);
 
   const open = props.open && countdown !== "expired";
-  const color = open ? (props.closingSoon ? "#b45309" : "#166534") : "#5c615c";
-  const bg = open ? (props.closingSoon ? "#fef3c7" : "#dcfce7") : "#e5e7e5";
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        borderRadius: 1.5,
-        px: 1.5,
-        py: 0.75,
-        bgcolor: bg,
-        mt: 1,
-      }}
+    <div
       role="status"
+      className={cx(
+        "mt-1 flex items-center gap-1.5 rounded-xl px-3 py-1.5 ring-1 ring-inset",
+        open
+          ? props.closingSoon
+            ? "bg-warning-primary ring-utility-yellow-200"
+            : "bg-success-primary ring-utility-green-200"
+          : "bg-secondary ring-secondary",
+      )}
     >
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          bgcolor: color,
-          flexShrink: 0,
-        }}
+      <span
+        className={cx(
+          "size-2 shrink-0 rounded-full",
+          open ? (props.closingSoon ? "bg-warning-solid" : "bg-success-solid") : "bg-quaternary",
+        )}
       />
-      <Typography sx={{ fontWeight: 700, fontSize: 14, color }}>
+      <span
+        className={cx(
+          "text-sm font-bold",
+          open
+            ? props.closingSoon
+              ? "text-warning-primary"
+              : "text-success-primary"
+            : "text-tertiary",
+        )}
+      >
         {open ? t("orderOpen") : t("orderClosed")}
-      </Typography>
+      </span>
       {open && props.closingSoon && countdown && countdown !== "expired" && (
-        <Typography sx={{ fontWeight: 700, fontSize: 14, color, fontVariantNumeric: "tabular-nums" }}>
+        <span
+          className={cx(
+            "text-sm font-bold tabular-nums",
+            props.closingSoon ? "text-warning-primary" : "text-success-primary",
+          )}
+        >
           · {countdown}
-        </Typography>
+        </span>
       )}
       {open && (
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary", ml: "auto" }}>
+        <span className="ml-auto text-xs text-tertiary">
           {formatMinutes(props.endMinutes)} {t("closesAt")} · {t("delivery")}{" "}
           {formatDateStr(props.windowDate)}
-        </Typography>
+        </span>
       )}
       {!open && countdown !== null && countdown !== "expired" && (
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary", ml: "auto" }}>
+        <span className="ml-auto text-xs text-tertiary">
           {formatMinutes(props.startMinutes)} {t("opensAt")}
-        </Typography>
+        </span>
       )}
-    </Box>
+    </div>
   );
 }

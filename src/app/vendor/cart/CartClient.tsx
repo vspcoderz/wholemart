@@ -1,23 +1,15 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  IconButton,
-  Paper,
-  Snackbar,
-  Alert,
-  Typography,
-} from "@mui/material";
-import { Add, Remove } from "@mui/icons-material";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Minus, Plus } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
 import type { Unit } from "@/db/schema";
 import { UNIT_LABELS, UNIT_STEPS } from "@/lib/format";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLang } from "@/lib/i18n";
 import { saveOrder } from "@/lib/actions/orders";
+import { cx } from "@/utils/cx";
 
 type CartProduct = { id: number; name: string; nameMr: string | null; emoji: string | null; unit: Unit };
 
@@ -32,7 +24,13 @@ export default function CartClient({
   const { items, setQty, clear: cartClear } = useCart();
   const { t, lang } = useLang();
   const [pending, startTransition] = useTransition();
-  const [toast, setToast] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const tt = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(tt);
+  }, [toast]);
 
   const rows = [
     ...new Map(
@@ -53,116 +51,89 @@ export default function CartClient({
       const res = await saveOrder(items.filter((i) => i.quantity > 0));
       if (res.ok) {
         cartClear();
-        setToast({ msg: t("orderSaved"), severity: "success" });
+        setToast({ msg: t("orderSaved"), ok: true });
         router.push("/vendor/orders");
       } else {
-        setToast({ msg: res.error, severity: "error" });
+        setToast({ msg: res.error, ok: false });
       }
     });
   }
 
   if (rows.length === 0) {
     return (
-      <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 1.5, mt: 2 }}>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {t("emptyCart")}
-        </Typography>
-        <Button variant="contained" onClick={() => router.push("/vendor")}>
+      <div className="mt-2 rounded-xl bg-primary p-8 text-center ring-1 ring-secondary">
+        <p className="mb-4 text-sm text-tertiary">{t("emptyCart")}</p>
+        <Button size="md" color="primary" onClick={() => router.push("/vendor")}>
           {t("browse")}
         </Button>
-      </Paper>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ pb: 2 }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-        {t("cart")}
-      </Typography>
+    <div className="pb-2">
+      <h1 className="mb-2 text-md font-semibold text-primary">{t("cart")}</h1>
 
-      {rows.map((r) => (
-        <Card
-          key={r.id}
-          variant="outlined"
-          sx={{ mb: 1, borderRadius: 1.5, p: 1.25, display: "flex", alignItems: "center", gap: 1.5 }}
-        >
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 1,
-              display: "grid",
-              placeItems: "center",
-              bgcolor: "action.hover",
-              fontSize: 24,
-              flexShrink: 0,
-            }}
+      <ul className="flex flex-col gap-1.5">
+        {rows.map((r) => (
+          <li
+            key={r.id}
+            className="flex items-center gap-3 rounded-xl bg-primary p-3 shadow-xs ring-1 ring-secondary"
           >
-            {r.emoji ?? "🥬"}
-          </Box>
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 600 }} noWrap>
-              {lang === "mr" && r.nameMr ? r.nameMr : r.name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              per {UNIT_LABELS[r.unit]}
-            </Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <IconButton
-              size="small"
-              aria-label={`Reduce ${r.name}`}
-              disabled={!windowOpen}
-              onClick={() =>
-                setQty(r.id, Math.max(0, r.quantity - (UNIT_STEPS[r.unit] ?? 1)))
-              }
-              sx={{ border: 1, borderColor: "divider", minHeight: 36, minWidth: 36 }}
-            >
-              <Remove fontSize="small" />
-            </IconButton>
-            <Typography sx={{ minWidth: 34, textAlign: "center", fontWeight: 700 }}>
-              {r.quantity}
-            </Typography>
-            <IconButton
-              size="small"
-              aria-label={`Add more ${r.name}`}
-              disabled={!windowOpen}
-              onClick={() => setQty(r.id, r.quantity + (UNIT_STEPS[r.unit] ?? 1))}
-              sx={{
-                border: 1,
-                borderColor: "primary.main",
-                minHeight: 36,
-                minWidth: 36,
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-              }}
-            >
-              <Add fontSize="small" />
-            </IconButton>
-          </Box>
-        </Card>
-      ))}
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-2xl">
+              {r.emoji ?? "🥬"}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-primary">
+                {lang === "mr" && r.nameMr ? r.nameMr : r.name}
+              </span>
+              <span className="block text-sm text-tertiary">per {UNIT_LABELS[r.unit]}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                aria-label={`Reduce ${r.name}`}
+                disabled={!windowOpen}
+                onClick={() => setQty(r.id, Math.max(0, r.quantity - (UNIT_STEPS[r.unit] ?? 1)))}
+                className="grid size-9 cursor-pointer place-items-center rounded-lg text-fg-quaternary ring-1 ring-secondary outline-focus-ring ring-inset transition-colors hover:bg-primary_hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2"
+              >
+                <Minus className="size-4" />
+              </button>
+              <span className="min-w-8.5 text-center text-sm font-bold text-primary">
+                {r.quantity}
+              </span>
+              <button
+                type="button"
+                aria-label={`Add more ${r.name}`}
+                disabled={!windowOpen}
+                onClick={() => setQty(r.id, r.quantity + (UNIT_STEPS[r.unit] ?? 1))}
+                className="grid size-9 cursor-pointer place-items-center rounded-lg bg-brand-solid text-white outline-focus-ring transition-colors hover:bg-brand-solid_hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2"
+              >
+                <Plus className="size-4" />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2, px: 0.5 }}>
-        <Typography variant="h6">
-          {itemCount} {itemCount === 1 ? "item" : "items"} ({t("payOnDelivery")})
-        </Typography>
-      </Box>
+      <p className="px-0.5 py-3 text-md text-primary">
+        {itemCount} {itemCount === 1 ? "item" : "items"} ({t("payOnDelivery")})
+      </p>
 
       {windowOpen ? (
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <div className="flex gap-2">
           <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            disabled={pending}
+            size="lg"
+            color="primary"
+            className="flex-1"
+            isLoading={pending}
             onClick={submit}
           >
-            {pending ? t("saving") : t("saveOrder")}
+            {t("saveOrder")}
           </Button>
           <Button
-            color="error"
-            size="large"
+            size="lg"
+            color="secondary-destructive"
             onClick={() => {
               cartClear();
               router.refresh();
@@ -170,16 +141,26 @@ export default function CartClient({
           >
             {t("clear")}
           </Button>
-        </Box>
+        </div>
       ) : (
-        <Alert severity="warning">{t("windowClosed")}</Alert>
+        <p className="rounded-lg bg-warning-primary p-3 text-sm font-medium text-warning-primary ring-1 ring-utility-yellow-200 ring-inset">
+          {t("windowClosed")}
+        </p>
       )}
 
-      <Snackbar open={toast !== null} autoHideDuration={4000} onClose={() => setToast(null)}>
-        <Alert severity={toast?.severity ?? "success"} onClose={() => setToast(null)}>
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed bottom-20 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl p-3.5 text-sm font-medium shadow-lg ring-1 ring-inset",
+            toast.ok
+              ? "bg-success-solid text-white ring-transparent"
+              : "bg-error-solid text-white ring-transparent",
+          )}
+        >
+          {toast.msg}
+        </div>
+      )}
+    </div>
   );
 }

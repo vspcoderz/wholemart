@@ -1,0 +1,16 @@
+{
+  "$schema": "https://www.untitledui.com/react/schema/components.json",
+  "style": "default",
+  "tailwind": {
+    "config": "",
+    "css": "src/app/globals.css",
+    "baseColor": "brand",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components/ui",
+    "utils": "@/lib/cx",
+    "ui": "@/components/ui"
+  },
+  "iconLibrary": "untitledui"
+}

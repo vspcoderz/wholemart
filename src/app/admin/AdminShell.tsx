@@ -1,209 +1,200 @@
 "use client";
 
-import {
-  Box,
-  BottomNavigation,
-  BottomNavigationAction,
-  Drawer,
-  Divider,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Paper,
-  Toolbar,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
-import {
-  Dashboard,
-  History,
-  Inventory2,
-  AccountBalance,
-  Settings,
-  AgricultureRounded,
-  Logout,
-  PointOfSale,
-  Print,
-  MoreHoriz,
-} from "@mui/icons-material";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
+import {
+  BankNote02,
+  ClockRewind,
+  DotsHorizontal,
+  HomeLine,
+  LogOut01,
+  Printer,
+  ReceiptCheck,
+  Settings01,
+  ShoppingBag02,
+} from "@untitledui/icons";
+import { NavList } from "@/components/application/app-navigation/base-components/nav-list";
+import { NavItemBase } from "@/components/application/app-navigation/base-components/nav-item";
+import type { NavItemDividerType, NavItemType } from "@/components/application/app-navigation/config";
+import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { APP_NAME } from "@/lib/brand";
+import { cx } from "@/utils/cx";
 
-const NAV = [
-  { label: "Home", href: "/admin", icon: Dashboard },
-  { label: "History", href: "/admin/orders", icon: History },
-  { label: "Billing", href: "/admin/billing", icon: PointOfSale },
-  { label: "Purchase", href: "/admin/purchase", icon: Inventory2 },
-  { label: "Printing", href: "/admin/printing", icon: Print },
-  { label: "Accounting", href: "/admin/accounting", icon: AccountBalance },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+const NAV: (NavItemType | NavItemDividerType)[] = [
+  { label: "Statistics", href: "/admin", icon: HomeLine },
+  {
+    label: "Reports",
+    href: "/admin/orders",
+    icon: ClockRewind,
+    items: [
+      { label: "Orders", href: "/admin/orders" },
+      { label: "Outstanding", href: "/admin/orders?tab=outstanding" },
+    ],
+  },
+  { label: "Billing", href: "/admin/billing", icon: ReceiptCheck },
+  { label: "Purchase", href: "/admin/purchase", icon: ShoppingBag02 },
+  { label: "Printing", href: "/admin/printing", icon: Printer },
+  { label: "Accounting", href: "/admin/accounting", icon: BankNote02 },
+  { label: "Settings", href: "/admin/settings", icon: Settings01 },
 ];
 
-// Bottom bar stays thumb-friendly: core tabs + a More sheet for the rest.
-const MOBILE_TABS = NAV.slice(0, 4);
-const MORE_TABS = NAV.slice(4);
-
-const DRAWER_WIDTH = 240;
-
 function isActive(pathname: string, href: string) {
-  return pathname === href || (href !== "/admin" && pathname.startsWith(href));
+  return pathname === href || (href !== "/admin" && pathname.startsWith(href + "/"));
 }
 
-export default function AdminShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function BrandMark() {
+  return (
+    <div className="flex items-center gap-2.5 px-1 py-1">
+      <span className="flex size-9 items-center justify-center rounded-lg bg-brand-solid text-white shadow-xs">
+        <ShoppingBag02 className="size-5" />
+      </span>
+      <span className="text-md font-semibold text-primary">{APP_NAME}</span>
+    </div>
+  );
+}
+
+function SignOutItem({ onDone }: { onDone?: () => void }) {
+  return (
+    <NavItemBase
+      type="link"
+      href="/login"
+      icon={LogOut01}
+      onClick={(e) => {
+        e.preventDefault();
+        onDone?.();
+        signOut({ redirectTo: "/login" });
+      }}
+    >
+      Sign out
+    </NavItemBase>
+  );
+}
+
+function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [moreOpen, setMoreOpen] = useState(false);
+
+  const tab = searchParams.get("tab");
+  const activeUrl = pathname + (tab ? `?tab=${tab}` : "");
 
   const go = (href: string) => {
     setMoreOpen(false);
     router.push(href);
   };
 
-  const signOutItem = (
-    <ListItemButton
-      sx={{ borderRadius: 2, mx: 1 }}
-      onClick={() => signOut({ redirectTo: "/login" })}
-    >
-      <ListItemIcon sx={{ minWidth: 40 }}>
-        <Logout />
-      </ListItemIcon>
-      <ListItemText primary="Sign out" />
-    </ListItemButton>
+  const sidebarBody = (
+    <div className="flex h-full flex-col">
+      <div className="px-4 pt-4 lg:px-5 lg:pt-5">
+        <BrandMark />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <NavList activeUrl={activeUrl} items={NAV} />
+      </div>
+      <div className="mt-auto px-4 py-4 lg:px-5 lg:py-5">
+        <ul className="flex flex-col">
+          <li className="py-px">
+            <SignOutItem />
+          </li>
+        </ul>
+      </div>
+    </div>
   );
 
-  const navList = (
-    <List sx={{ pt: 1 }}>
-      {NAV.map((n) => (
-        <ListItemButton
-          key={n.href}
-          selected={isActive(pathname, n.href)}
-          onClick={() => router.push(n.href)}
-          sx={{ minHeight: 44, borderRadius: 2, mx: 1, mb: 0.5 }}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}>
-            <n.icon />
-          </ListItemIcon>
-          <ListItemText primary={n.label} />
-        </ListItemButton>
-      ))}
-      <Divider sx={{ my: 1, mx: 2 }} />
-      {signOutItem}
-    </List>
-  );
+  // Bottom bar stays thumb-friendly: core tabs + a More sheet for the rest.
+  const mobileTabs = [
+    { label: "Statistics", href: "/admin", Icon: HomeLine },
+    { label: "Reports", href: "/admin/orders", Icon: ClockRewind },
+    { label: "Billing", href: "/admin/billing", Icon: ReceiptCheck },
+    { label: "Printing", href: "/admin/printing", Icon: Printer },
+  ];
+  const currentMobile =
+    mobileTabs.find((t) => isActive(pathname, t.href))?.href ?? (pathname.startsWith("/admin/orders") ? "/admin/orders" : null);
+  const moreSelected =
+    !currentMobile && ["/admin/purchase", "/admin/accounting", "/admin/settings"].some((h) => isActive(pathname, h));
 
-  if (isDesktop) {
-    return (
-      <Box sx={{ display: "flex", minHeight: "100dvh" }}>
-        <Drawer
-          variant="permanent"
-          sx={{
-            width: DRAWER_WIDTH,
-            flexShrink: 0,
-            "& .MuiDrawer-paper": {
-              width: DRAWER_WIDTH,
-              borderRight: 1,
-              borderColor: "divider",
-            },
-          }}
-        >
-          <Toolbar>
-            <AgricultureRounded color="primary" sx={{ mr: 1 }} />
-            <Typography sx={{ fontWeight: 700 }}>{APP_NAME}</Typography>
-          </Toolbar>
-          {navList}
-        </Drawer>
-        <Box
-          component="main"
-          sx={{ flexGrow: 1, width: `calc(100% - ${DRAWER_WIDTH}px)`, p: 3 }}
-        >
-          {children}
-        </Box>
-      </Box>
-    );
-  }
-
-  // Mobile: content + compact bottom navigation with a More sheet.
-  const moreSelected = MORE_TABS.some((n) => isActive(pathname, n.href));
   return (
-    <Box sx={{ minHeight: "100dvh", pb: 9 }}>
-      <Box component="main" sx={{ p: 1.5 }}>
-        {children}
-      </Box>
-      <Drawer
-        anchor="bottom"
-        open={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        slotProps={{ paper: { sx: { borderTopLeftRadius: 16, borderTopRightRadius: 16 } } }}
+    <>
+      {/* Desktop sidebar */}
+      <div className="max-lg:hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-70">
+        <aside className="flex h-full w-full flex-col border-r border-secondary bg-primary">{sidebarBody}</aside>
+      </div>
+      <div className="invisible hidden lg:sticky lg:top-0 lg:bottom-0 lg:left-0 lg:block lg:pl-70" />
+
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-secondary bg-primary px-4 lg:hidden">
+        <BrandMark />
+      </header>
+
+      {/* Content */}
+      <div className="flex min-h-dvh flex-col lg:min-h-screen">
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:py-6 lg:pb-8">{children}</main>
+      </div>
+
+      {/* Mobile bottom navigation */}
+      <nav
+        aria-label="Admin"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-secondary bg-primary pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
-        <List sx={{ py: 1 }}>
-          {MORE_TABS.map((n) => (
-            <ListItemButton
-              key={n.href}
-              selected={isActive(pathname, n.href)}
-              onClick={() => go(n.href)}
-              sx={{ minHeight: 48, borderRadius: 2, mx: 1 }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <n.icon />
-              </ListItemIcon>
-              <ListItemText primary={n.label} />
-            </ListItemButton>
-          ))}
-          <Divider sx={{ my: 1, mx: 2 }} />
-          {signOutItem}
-        </List>
-      </Drawer>
-      <Paper
-        sx={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          pb: "env(safe-area-inset-bottom)",
-          zIndex: 1000,
-        }}
-        elevation={3}
-      >
-        <BottomNavigation
-          value={
-            moreSelected
-              ? "more"
-              : (MOBILE_TABS.find((n) => isActive(pathname, n.href))?.href ??
-                "/admin")
-          }
-          onChange={(_, v: string) => {
-            if (v === "more") setMoreOpen(true);
-            else router.push(v);
-          }}
-          showLabels
-        >
-          {MOBILE_TABS.map((n) => (
-            <BottomNavigationAction
-              key={n.href}
-              label={n.label}
-              value={n.href}
-              icon={<n.icon />}
-              sx={{ minHeight: 56, minWidth: 0 }}
-            />
-          ))}
-          <BottomNavigationAction
-            label="More"
-            value="more"
-            icon={<MoreHoriz />}
-            sx={{ minHeight: 56, minWidth: 0 }}
-          />
-        </BottomNavigation>
-      </Paper>
-    </Box>
+        <div className="grid grid-cols-5">
+          {mobileTabs.map((t) => {
+            const active = currentMobile === t.href;
+            return (
+              <button
+                key={t.href}
+                type="button"
+                onClick={() => go(t.href)}
+                aria-current={active ? "page" : undefined}
+                className={cx(
+                  "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-semibold outline-focus-ring transition-colors focus-visible:outline-2",
+                  active ? "text-brand-secondary" : "text-quaternary",
+                )}
+              >
+                <t.Icon className="size-5" />
+                {t.label === "Statistics" ? "Home" : t.label}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className={cx(
+              "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-semibold outline-focus-ring transition-colors focus-visible:outline-2",
+              moreSelected ? "text-brand-secondary" : "text-quaternary",
+            )}
+          >
+            <DotsHorizontal className="size-5" />
+            More
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile More sheet */}
+      <ModalOverlay isOpen={moreOpen} onOpenChange={setMoreOpen} isDismissable>
+        <Modal className="sm:max-w-md">
+          <Dialog className="p-2">
+            <div onClick={(e) => {
+              const a = (e.target as HTMLElement).closest("a");
+              if (a) setMoreOpen(false);
+            }}>
+              <NavList activeUrl={activeUrl} items={NAV} className="pt-2" />
+            </div>
+            <div className="px-4 py-3">
+              <SignOutItem onDone={() => setMoreOpen(false)} />
+            </div>
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+    </>
+  );
+}
+
+export default function AdminShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <ShellInner>{children}</ShellInner>
+    </Suspense>
   );
 }

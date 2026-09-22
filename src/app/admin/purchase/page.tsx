@@ -25,7 +25,7 @@ export default async function ManifestPage(props: {
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))
     .where(
-      sql`${orders.windowDate} = ${windowDate} and ${orders.status} <> 'CANCELLED'`,
+      sql`${orders.windowDate} = ${windowDate} and (${orders.status} = 'CONFIRMED' or ${orders.status} = 'DELIVERED')`,
     )
     .groupBy(
       orderItems.productId,
@@ -44,7 +44,7 @@ export default async function ManifestPage(props: {
     .from(orders)
     .innerJoin(users, eq(users.id, orders.vendorId))
     .where(
-      sql`${orders.windowDate} = ${windowDate} and ${orders.status} <> 'CANCELLED'`,
+      sql`${orders.windowDate} = ${windowDate} and (${orders.status} = 'CONFIRMED' or ${orders.status} = 'DELIVERED')`,
     )
     .groupBy(
       orders.id,

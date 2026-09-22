@@ -28,14 +28,19 @@ export async function GET(request: Request) {
     return new NextResponse("Select at least one order.", { status: 400 });
   }
 
-  const rows = await db
-    .select({ order: orders, vendor: users })
-    .from(orders)
-    .innerJoin(users, eq(users.id, orders.vendorId))
-    .where(inArray(orders.id, ids))
-    .orderBy(asc(users.businessName), asc(orders.id));
+  const rows = (
+    await db
+      .select({ order: orders, vendor: users })
+      .from(orders)
+      .innerJoin(users, eq(users.id, orders.vendorId))
+      .where(inArray(orders.id, ids))
+      .orderBy(asc(users.businessName), asc(orders.id))
+  ).filter((r) => r.order.status === "CONFIRMED" || r.order.status === "DELIVERED");
 
-  if (rows.length === 0) return new NextResponse("Not found", { status: 404 });
+  if (rows.length === 0)
+    return new NextResponse("Only billed orders can be printed — finalize them in Billing first.", {
+      status: 400,
+    });
 
   const allItems = await db
     .select()
